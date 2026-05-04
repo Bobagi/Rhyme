@@ -7,6 +7,7 @@ export function useRealTimeSpeechRecognition() {
     interimTranscript: '',
     finalTranscriptSegments: [],
     speechRecognitionError: '',
+    microphoneLevel: 0,
     isSupported: true,
     shouldKeepListening: false,
   };
@@ -61,6 +62,10 @@ export function useRealTimeSpeechRecognition() {
   });
 
   const listeners = new Set();
+  let microphoneAudioContext = null;
+  let microphoneAnalyser = null;
+  let microphoneStream = null;
+  let microphoneLevelAnimationFrame = 0;
 
   function updateInterface() {
     listeners.forEach((listenerCallback) => listenerCallback({ ...recognitionState }));
@@ -81,8 +86,27 @@ export function useRealTimeSpeechRecognition() {
     recognitionState.listeningStatus = 'starting';
     updateInterface();
     try {
-      const microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      microphoneStream.getTracks().forEach((microphoneTrack) => microphoneTrack.stop());
+      microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      microphoneAudioContext = new window.AudioContext();
+      const microphoneSource = microphoneAudioContext.createMediaStreamSource(microphoneStream);
+      microphoneAnalyser = microphoneAudioContext.createAnalyser();
+      microphoneAnalyser.fftSize = 512;
+      microphoneSource.connect(microphoneAnalyser);
+      const microphoneDataArray = new Uint8Array(microphoneAnalyser.frequencyBinCount);
+      const updateMicrophoneLevel = () => {
+        if (!microphoneAnalyser) {
+          return;
+        }
+        microphoneAnalyser.getByteTimeDomainData(microphoneDataArray);
+        let totalAmplitude = 0;
+        for (let microphoneDataIndex = 0; microphoneDataIndex < microphoneDataArray.length; microphoneDataIndex += 1) {
+          totalAmplitude += Math.abs(microphoneDataArray[microphoneDataIndex] - 128);
+        }
+        recognitionState.microphoneLevel = Math.min(100, Math.round((totalAmplitude / microphoneDataArray.length) * 2));
+        updateInterface();
+        microphoneLevelAnimationFrame = window.requestAnimationFrame(updateMicrophoneLevel);
+      };
+      updateMicrophoneLevel();
       speechRecognitionService.start();
     } catch (caughtError) {
       recognitionState.speechRecognitionError = (caughtError && caughtError.name) || 'microphone-access-failed';
@@ -100,6 +124,23 @@ export function useRealTimeSpeechRecognition() {
     speechRecognitionService.stop();
     recognitionState.listeningStatus = 'stopped';
     recognitionState.interimTranscript = '';
+    recognitionState.microphoneLevel = 0;
+    if (microphoneLevelAnimationFrame) {
+      window.cancelAnimationFrame(microphoneLevelAnimationFrame);
+      microphoneLevelAnimationFrame = 0;
+    }
+    if (microphoneAnalyser) {
+      microphoneAnalyser.disconnect();
+      microphoneAnalyser = null;
+    }
+    if (microphoneAudioContext) {
+      microphoneAudioContext.close();
+      microphoneAudioContext = null;
+    }
+    if (microphoneStream) {
+      microphoneStream.getTracks().forEach((microphoneTrack) => microphoneTrack.stop());
+      microphoneStream = null;
+    }
     updateInterface();
   }
 
@@ -110,7 +151,7 @@ export function useRealTimeSpeechRecognition() {
   }
 
   function dispose() {
-    recognitionState.shouldKeepListening = false;
+    stopListening();
     speechRecognitionService.destroy();
     listeners.clear();
   }

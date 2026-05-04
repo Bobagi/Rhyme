@@ -15,6 +15,12 @@ export function renderSpeechRecognitionTester(rootElement) {
       <div class="warning" id="unsupportedBrowserMessage"></div>
       <div class="error" id="speechRecognitionErrorMessage"></div>
       <section class="panel">
+        <strong>Microphone level</strong>
+        <div style="height: 12px; background: #ddd; border-radius: 6px; overflow: hidden; margin-top: 8px;">
+          <div id="microphoneLevelBar" style="height: 100%; width: 0%; background: #2f9e44;"></div>
+        </div>
+      </section>
+      <section class="panel">
         <strong>Interim transcript</strong>
         <p id="interimTranscriptValue"></p>
       </section>
@@ -32,6 +38,7 @@ export function renderSpeechRecognitionTester(rootElement) {
   const speechRecognitionErrorMessage = rootElement.querySelector('#speechRecognitionErrorMessage');
   const interimTranscriptValue = rootElement.querySelector('#interimTranscriptValue');
   const finalTranscriptHistory = rootElement.querySelector('#finalTranscriptHistory');
+  const microphoneLevelBar = rootElement.querySelector('#microphoneLevelBar');
 
   startListeningButton.addEventListener('click', () => speechRecognitionController.startListening());
   stopListeningButton.addEventListener('click', () => speechRecognitionController.stopListening());
@@ -46,6 +53,7 @@ export function renderSpeechRecognitionTester(rootElement) {
       ? speechRecognitionErrorMessages[speechRecognitionSnapshot.speechRecognitionError] || `Speech recognition error: ${speechRecognitionSnapshot.speechRecognitionError}`
       : '';
     interimTranscriptValue.textContent = speechRecognitionSnapshot.interimTranscript || '-';
+    microphoneLevelBar.style.width = `${speechRecognitionSnapshot.microphoneLevel}%`;
 
     finalTranscriptHistory.innerHTML = '';
     speechRecognitionSnapshot.finalTranscriptSegments.forEach((finalTranscriptSegment) => {
