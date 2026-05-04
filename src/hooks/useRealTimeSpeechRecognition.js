@@ -39,6 +39,11 @@ export function useRealTimeSpeechRecognition() {
       recognitionState.speechRecognitionError = speechRecognitionErrorCode;
       if (speechRecognitionErrorCode === 'not-allowed') {
         recognitionState.shouldKeepListening = false;
+        recognitionState.listeningStatus = 'stopped';
+      }
+      if (speechRecognitionErrorCode === 'network') {
+        recognitionState.shouldKeepListening = false;
+        recognitionState.listeningStatus = 'stopped';
       }
       updateInterface();
     },

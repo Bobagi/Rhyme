@@ -37,10 +37,13 @@ export function renderSpeechRecognitionTester(rootElement) {
   stopListeningButton.addEventListener('click', () => speechRecognitionController.stopListening());
 
   const unsubscribe = speechRecognitionController.subscribe((speechRecognitionSnapshot) => {
+    const speechRecognitionErrorMessages = {
+      network: 'Speech recognition error: network. Open this app in Google Chrome using the forwarded Codespaces HTTPS URL and allow microphone access.',
+    };
     listeningStatusValue.textContent = `Status: ${speechRecognitionSnapshot.listeningStatus}`;
     unsupportedBrowserMessage.textContent = speechRecognitionSnapshot.isSupported ? '' : 'This browser does not support the Web Speech API.';
     speechRecognitionErrorMessage.textContent = speechRecognitionSnapshot.speechRecognitionError
-      ? `Speech recognition error: ${speechRecognitionSnapshot.speechRecognitionError}`
+      ? speechRecognitionErrorMessages[speechRecognitionSnapshot.speechRecognitionError] || `Speech recognition error: ${speechRecognitionSnapshot.speechRecognitionError}`
       : '';
     interimTranscriptValue.textContent = speechRecognitionSnapshot.interimTranscript || '-';
 
