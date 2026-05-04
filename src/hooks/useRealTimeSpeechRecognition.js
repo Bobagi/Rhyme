@@ -41,10 +41,6 @@ export function useRealTimeSpeechRecognition() {
         recognitionState.shouldKeepListening = false;
         recognitionState.listeningStatus = 'stopped';
       }
-      if (speechRecognitionErrorCode === 'network') {
-        recognitionState.shouldKeepListening = false;
-        recognitionState.listeningStatus = 'stopped';
-      }
       updateInterface();
     },
     onResult: (recognizedSpeechSegments) => {
