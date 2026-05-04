@@ -21,9 +21,6 @@ export class BrowserSpeechRecognitionService {
       this.speechRecognitionInstance.continuous = true;
       this.speechRecognitionInstance.interimResults = true;
       this.speechRecognitionInstance.lang = this.selectedSpeechLanguage.locale;
-      if ('processLocally' in this.speechRecognitionInstance) {
-        this.speechRecognitionInstance.processLocally = true;
-      }
       this.speechRecognitionInstance.onstart = () => this.browserSpeechRecognitionCallbacks.onStart();
       this.speechRecognitionInstance.onend = () => this.browserSpeechRecognitionCallbacks.onEnd();
       this.speechRecognitionInstance.onerror = (speechRecognitionError) => this.browserSpeechRecognitionCallbacks.onError(speechRecognitionError.error || 'unknown');
