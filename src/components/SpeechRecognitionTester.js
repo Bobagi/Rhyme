@@ -45,7 +45,7 @@ export function renderSpeechRecognitionTester(rootElement) {
 
   const unsubscribe = speechRecognitionController.subscribe((speechRecognitionSnapshot) => {
     const speechRecognitionErrorMessages = {
-      network: 'Speech recognition error: network. Reconnecting automatically. If it persists, open the forwarded Codespaces HTTPS URL in Google Chrome and allow microphone access.',
+      network: 'Speech recognition error: network. Reconnecting automatically with a fallback language. If it persists, open the forwarded Codespaces HTTPS URL in Google Chrome and allow microphone access.',
     };
     listeningStatusValue.textContent = `Status: ${speechRecognitionSnapshot.listeningStatus}`;
     unsupportedBrowserMessage.textContent = speechRecognitionSnapshot.isSupported ? '' : 'This browser does not support the Web Speech API.';

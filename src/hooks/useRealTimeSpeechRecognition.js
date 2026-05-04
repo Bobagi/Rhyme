@@ -38,6 +38,9 @@ export function useRealTimeSpeechRecognition() {
     },
     onError: (speechRecognitionErrorCode) => {
       recognitionState.speechRecognitionError = speechRecognitionErrorCode;
+      if (speechRecognitionErrorCode === 'network' && !hasAppliedRecognitionLanguageFallback) {
+        hasAppliedRecognitionLanguageFallback = speechRecognitionService.applyFallbackLanguage();
+      }
       if (speechRecognitionErrorCode === 'not-allowed') {
         recognitionState.shouldKeepListening = false;
         recognitionState.listeningStatus = 'stopped';
@@ -66,6 +69,7 @@ export function useRealTimeSpeechRecognition() {
   let microphoneAnalyser = null;
   let microphoneStream = null;
   let microphoneLevelAnimationFrame = 0;
+  let hasAppliedRecognitionLanguageFallback = false;
 
   function updateInterface() {
     listeners.forEach((listenerCallback) => listenerCallback({ ...recognitionState }));

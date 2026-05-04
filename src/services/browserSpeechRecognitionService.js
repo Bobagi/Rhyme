@@ -5,10 +5,20 @@ export class BrowserSpeechRecognitionService {
     this.selectedSpeechLanguage = selectedSpeechLanguage;
     this.browserSpeechRecognitionCallbacks = browserSpeechRecognitionCallbacks;
     this.speechRecognitionInstance = null;
+    this.hasFallbackLanguageApplied = false;
   }
 
   isSupported() {
     return Boolean(browserSpeechRecognitionConstructor);
+  }
+
+  applyFallbackLanguage() {
+    if (this.speechRecognitionInstance && !this.hasFallbackLanguageApplied) {
+      this.speechRecognitionInstance.lang = 'en-US';
+      this.hasFallbackLanguageApplied = true;
+      return true;
+    }
+    return false;
   }
 
   start() {
