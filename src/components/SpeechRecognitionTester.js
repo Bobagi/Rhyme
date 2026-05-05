@@ -13,6 +13,7 @@ export function renderSpeechRecognitionTester(rootElement) {
       </div>
       <div class="status" id="listeningStatusValue">Status: idle</div>
       <div class="warning" id="unsupportedBrowserMessage"></div>
+      <div class="warning" id="braveBrowserMessage"></div>
       <div class="error" id="speechRecognitionErrorMessage"></div>
       <section class="panel">
         <strong>Microphone level</strong>
@@ -39,6 +40,7 @@ export function renderSpeechRecognitionTester(rootElement) {
   const stopListeningButton = rootElement.querySelector('#stopListeningButton');
   const listeningStatusValue = rootElement.querySelector('#listeningStatusValue');
   const unsupportedBrowserMessage = rootElement.querySelector('#unsupportedBrowserMessage');
+  const braveBrowserMessage = rootElement.querySelector('#braveBrowserMessage');
   const speechRecognitionErrorMessage = rootElement.querySelector('#speechRecognitionErrorMessage');
   const interimTranscriptValue = rootElement.querySelector('#interimTranscriptValue');
   const finalTranscriptHistory = rootElement.querySelector('#finalTranscriptHistory');
@@ -54,6 +56,7 @@ export function renderSpeechRecognitionTester(rootElement) {
     };
     listeningStatusValue.textContent = `Status: ${speechRecognitionSnapshot.listeningStatus}`;
     unsupportedBrowserMessage.textContent = speechRecognitionSnapshot.isSupported ? '' : 'This browser does not support the Web Speech API.';
+    braveBrowserMessage.textContent = navigator.brave ? 'Brave may block or break Web Speech API transcription. Use Google Chrome for this MVP.' : '';
     speechRecognitionErrorMessage.textContent = speechRecognitionSnapshot.speechRecognitionError
       ? speechRecognitionErrorMessages[speechRecognitionSnapshot.speechRecognitionError] || `Speech recognition error: ${speechRecognitionSnapshot.speechRecognitionError}`
       : '';

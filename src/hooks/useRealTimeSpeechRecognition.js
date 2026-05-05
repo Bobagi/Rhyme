@@ -95,6 +95,7 @@ export function useRealTimeSpeechRecognition() {
       secureContext: window.isSecureContext,
       hasMediaDevices: Boolean(navigator.mediaDevices),
       hasGetUserMedia: Boolean(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+      isBrave: Boolean(navigator.brave),
     };
   }
 

@@ -34,6 +34,19 @@ Then:
 6. Allow microphone access.
 7. Click **Start listening**.
 
+
+## Browser support
+
+Use Google Chrome for this MVP.
+
+Brave can capture microphone audio, but it may block or fail Chrome's Web Speech API transcription service and repeatedly return:
+
+```text
+Speech recognition error: network
+```
+
+If that happens in Brave, test the same forwarded HTTPS URL in Google Chrome.
+
 ## Current speech recognition implementation
 
 The app currently uses the browser-native Web Speech API:
