@@ -29,10 +29,6 @@ export function renderSpeechRecognitionTester(rootElement) {
         <strong>Final transcript history</strong>
         <ul id="finalTranscriptHistory"></ul>
       </section>
-      <section class="panel">
-        <strong>Diagnostic logs</strong>
-        <ul id="diagnosticLogHistory"></ul>
-      </section>
     </main>
   `;
 
@@ -45,7 +41,6 @@ export function renderSpeechRecognitionTester(rootElement) {
   const interimTranscriptValue = rootElement.querySelector('#interimTranscriptValue');
   const finalTranscriptHistory = rootElement.querySelector('#finalTranscriptHistory');
   const microphoneLevelBar = rootElement.querySelector('#microphoneLevelBar');
-  const diagnosticLogHistory = rootElement.querySelector('#diagnosticLogHistory');
 
   startListeningButton.addEventListener('click', () => speechRecognitionController.startListening());
   stopListeningButton.addEventListener('click', () => speechRecognitionController.stopListening());
@@ -62,14 +57,6 @@ export function renderSpeechRecognitionTester(rootElement) {
       : '';
     interimTranscriptValue.textContent = speechRecognitionSnapshot.interimTranscript || '-';
     microphoneLevelBar.style.width = `${speechRecognitionSnapshot.microphoneLevel}%`;
-
-    diagnosticLogHistory.innerHTML = '';
-    speechRecognitionSnapshot.diagnosticLogs.forEach((diagnosticLog) => {
-      const diagnosticLogItem = document.createElement('li');
-      diagnosticLogItem.textContent = `${diagnosticLog.time} - ${diagnosticLog.message} ${JSON.stringify(diagnosticLog.details)}`;
-      diagnosticLogHistory.appendChild(diagnosticLogItem);
-    });
-
     finalTranscriptHistory.innerHTML = '';
     speechRecognitionSnapshot.finalTranscriptSegments.forEach((finalTranscriptSegment) => {
       const historyListItem = document.createElement('li');

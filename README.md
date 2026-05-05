@@ -34,7 +34,6 @@ Then:
 6. Allow microphone access.
 7. Click **Start listening**.
 
-
 ## Browser support
 
 Use Google Chrome for this MVP.
@@ -45,7 +44,14 @@ Brave can capture microphone audio, but it may block or fail Chrome's Web Speech
 Speech recognition error: network
 ```
 
-If that happens in Brave, test the same forwarded HTTPS URL in Google Chrome.
+To try Brave anyway:
+
+1. Open `brave://settings/privacy`.
+2. Disable Shields for the app URL.
+3. Enable Brave settings that allow Google services or Google login-related services, if available in your Brave version.
+4. Restart Brave and test again.
+
+If Brave still returns `network`, use Google Chrome.
 
 ## Current speech recognition implementation
 
@@ -56,15 +62,3 @@ The app currently uses the browser-native Web Speech API:
 - language: `pt-BR`
 - continuous recognition enabled
 - interim results enabled
-
-## Known limitation
-
-If the app shows this error repeatedly:
-
-```text
-Speech recognition error: network
-```
-
-it means the browser started the Web Speech API, but Chrome could not reach or use its speech recognition service for the current environment. The microphone can still work while speech-to-text fails.
-
-This is not fixed by installing npm packages because the current MVP has no build step and no backend. To avoid this browser service dependency, the app will need a different transcription engine, such as a free local/browser model or a backend transcription service.
