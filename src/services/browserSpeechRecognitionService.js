@@ -1,4 +1,5 @@
 const browserSpeechRecognitionConstructor = window.SpeechRecognition || window.webkitSpeechRecognition;
+const browserSpeechRecognitionApiName = window.SpeechRecognition ? 'SpeechRecognition' : 'webkitSpeechRecognition';
 
 export class BrowserSpeechRecognitionService {
   constructor(selectedSpeechLanguage, browserSpeechRecognitionCallbacks) {
@@ -9,6 +10,16 @@ export class BrowserSpeechRecognitionService {
 
   isSupported() {
     return Boolean(browserSpeechRecognitionConstructor);
+  }
+
+  getDiagnostics() {
+    return {
+      apiName: this.isSupported() ? browserSpeechRecognitionApiName : 'unavailable',
+      selectedLanguage: this.selectedSpeechLanguage.locale,
+      recognitionLanguage: this.speechRecognitionInstance ? this.speechRecognitionInstance.lang : this.selectedSpeechLanguage.locale,
+      continuous: this.speechRecognitionInstance ? this.speechRecognitionInstance.continuous : true,
+      interimResults: this.speechRecognitionInstance ? this.speechRecognitionInstance.interimResults : true,
+    };
   }
 
   start() {
@@ -23,7 +34,11 @@ export class BrowserSpeechRecognitionService {
       this.speechRecognitionInstance.lang = this.selectedSpeechLanguage.locale;
       this.speechRecognitionInstance.onstart = () => this.browserSpeechRecognitionCallbacks.onStart();
       this.speechRecognitionInstance.onend = () => this.browserSpeechRecognitionCallbacks.onEnd();
-      this.speechRecognitionInstance.onerror = (speechRecognitionError) => this.browserSpeechRecognitionCallbacks.onError(speechRecognitionError.error || 'unknown');
+      this.speechRecognitionInstance.onerror = (speechRecognitionError) => this.browserSpeechRecognitionCallbacks.onError({
+        code: speechRecognitionError.error || 'unknown',
+        message: speechRecognitionError.message || '',
+        eventType: speechRecognitionError.type || 'error',
+      });
       this.speechRecognitionInstance.onresult = (speechRecognitionEvent) => {
         const recognizedSpeechSegments = [];
         for (let segmentIndex = speechRecognitionEvent.resultIndex; segmentIndex < speechRecognitionEvent.results.length; segmentIndex += 1) {

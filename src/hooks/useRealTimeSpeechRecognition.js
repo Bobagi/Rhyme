@@ -8,6 +8,7 @@ export function useRealTimeSpeechRecognition() {
     finalTranscriptSegments: [],
     speechRecognitionError: '',
     microphoneLevel: 0,
+    diagnosticLogs: [],
     isSupported: true,
     shouldKeepListening: false,
   };
@@ -16,28 +17,34 @@ export function useRealTimeSpeechRecognition() {
     onUnsupported: () => {
       recognitionState.isSupported = false;
       recognitionState.listeningStatus = 'unsupported';
+      appendDiagnosticLog('Speech recognition is unsupported in this browser.', getEnvironmentDiagnostics());
       updateInterface();
     },
     onStart: () => {
       recognitionState.listeningStatus = 'listening';
       recognitionState.speechRecognitionError = '';
+      appendDiagnosticLog('Speech recognition started.', speechRecognitionService.getDiagnostics());
       updateInterface();
     },
     onEnd: () => {
+      appendDiagnosticLog('Speech recognition ended.', { shouldKeepListening: recognitionState.shouldKeepListening });
       if (recognitionState.shouldKeepListening) {
         try {
           speechRecognitionService.start();
           return;
         } catch (caughtError) {
           recognitionState.speechRecognitionError = (caughtError && caughtError.message) || 'Failed to restart recognition.';
+          appendDiagnosticLog('Speech recognition restart failed.', getCaughtErrorDetails(caughtError));
         }
       }
       recognitionState.listeningStatus = 'stopped';
       recognitionState.interimTranscript = '';
       updateInterface();
     },
-    onError: (speechRecognitionErrorCode) => {
+    onError: (speechRecognitionError) => {
+      const speechRecognitionErrorCode = speechRecognitionError.code || 'unknown';
       recognitionState.speechRecognitionError = speechRecognitionErrorCode;
+      appendDiagnosticLog('Speech recognition error received.', { ...speechRecognitionError, ...speechRecognitionService.getDiagnostics(), ...getEnvironmentDiagnostics() });
       if (speechRecognitionErrorCode === 'not-allowed') {
         recognitionState.shouldKeepListening = false;
         recognitionState.listeningStatus = 'stopped';
@@ -67,6 +74,37 @@ export function useRealTimeSpeechRecognition() {
   let microphoneStream = null;
   let microphoneLevelAnimationFrame = 0;
 
+
+  function appendDiagnosticLog(diagnosticMessage, diagnosticDetails) {
+    recognitionState.diagnosticLogs = [
+      {
+        time: new Date().toISOString(),
+        message: diagnosticMessage,
+        details: diagnosticDetails,
+      },
+      ...recognitionState.diagnosticLogs,
+    ].slice(0, 20);
+  }
+
+  function getEnvironmentDiagnostics() {
+    return {
+      language: navigator.language,
+      userAgent: navigator.userAgent,
+      online: navigator.onLine,
+      protocol: window.location.protocol,
+      secureContext: window.isSecureContext,
+      hasMediaDevices: Boolean(navigator.mediaDevices),
+      hasGetUserMedia: Boolean(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+    };
+  }
+
+  function getCaughtErrorDetails(caughtError) {
+    return {
+      name: caughtError && caughtError.name ? caughtError.name : 'Error',
+      message: caughtError && caughtError.message ? caughtError.message : String(caughtError),
+    };
+  }
+
   function updateInterface() {
     listeners.forEach((listenerCallback) => listenerCallback({ ...recognitionState }));
   }
@@ -86,7 +124,9 @@ export function useRealTimeSpeechRecognition() {
     recognitionState.listeningStatus = 'starting';
     updateInterface();
     try {
+      appendDiagnosticLog('Requesting microphone permission.', getEnvironmentDiagnostics());
       microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      appendDiagnosticLog('Microphone permission granted.', { audioTracks: microphoneStream.getAudioTracks().length });
       microphoneAudioContext = new window.AudioContext();
       const microphoneSource = microphoneAudioContext.createMediaStreamSource(microphoneStream);
       microphoneAnalyser = microphoneAudioContext.createAnalyser();
@@ -112,6 +152,7 @@ export function useRealTimeSpeechRecognition() {
       recognitionState.speechRecognitionError = (caughtError && caughtError.name) || 'microphone-access-failed';
       recognitionState.shouldKeepListening = false;
       recognitionState.listeningStatus = 'stopped';
+      appendDiagnosticLog('Microphone or speech recognition start failed.', getCaughtErrorDetails(caughtError));
       updateInterface();
     }
   }
