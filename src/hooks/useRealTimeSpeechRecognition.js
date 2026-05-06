@@ -1,6 +1,9 @@
 import { defaultSpeechLanguage } from '../config/speechLanguages.js';
 import { BrowserSpeechRecognitionService } from '../services/browserSpeechRecognitionService.js';
 
+const remoteRhymeWordListUrl = 'https://raw.githubusercontent.com/pythonprobr/palavras/master/palavras.txt';
+let remoteRhymeWordCatalogPromise = null;
+
 const rhymeSuggestionCatalog = [
   'coração',
   'canção',
@@ -183,14 +186,14 @@ function getRhymeEndings(wordToMatch) {
     .filter((rhymeEnding, rhymeEndingIndex, rhymeEndings) => rhymeEnding && rhymeEndings.indexOf(rhymeEnding) === rhymeEndingIndex);
 }
 
-function getRhymeSuggestionsForTranscript(transcript) {
+function getRhymeSuggestionsFromCatalog(transcript, rhymeWordCatalog) {
   const spokenWords = normalizeRhymeText(transcript).split(/\s+/).filter(Boolean);
   const lastSpokenWord = spokenWords.at(-1) || '';
   const rhymeEndings = getRhymeEndings(lastSpokenWord);
   const rhymeSuggestions = [];
 
   rhymeEndings.forEach((rhymeEnding) => {
-    rhymeSuggestionCatalog.forEach((rhymeSuggestion) => {
+    rhymeWordCatalog.forEach((rhymeSuggestion) => {
       const normalizedSuggestion = normalizeRhymeText(rhymeSuggestion);
       const suggestionLastWord = normalizedSuggestion.split(/\s+/).at(-1) || '';
       if (suggestionLastWord !== lastSpokenWord && suggestionLastWord.endsWith(rhymeEnding) && !rhymeSuggestions.includes(rhymeSuggestion)) {
@@ -200,6 +203,21 @@ function getRhymeSuggestionsForTranscript(transcript) {
   });
 
   return rhymeSuggestions;
+}
+
+function getRemoteRhymeWordCatalog() {
+  if (!remoteRhymeWordCatalogPromise) {
+    remoteRhymeWordCatalogPromise = fetch(remoteRhymeWordListUrl)
+      .then((remoteRhymeWordListResponse) => remoteRhymeWordListResponse.text())
+      .then((remoteRhymeWordListText) => remoteRhymeWordListText.split(/\r?\n/).map((remoteRhymeWord) => remoteRhymeWord.trim()).filter(Boolean));
+  }
+
+  return remoteRhymeWordCatalogPromise;
+}
+
+async function getRhymeSuggestionsForTranscript(transcript) {
+  const remoteRhymeWordCatalog = await getRemoteRhymeWordCatalog();
+  return getRhymeSuggestionsFromCatalog(transcript, [...rhymeSuggestionCatalog, ...remoteRhymeWordCatalog]);
 }
 
 export function useRealTimeSpeechRecognition() {
@@ -264,7 +282,15 @@ export function useRealTimeSpeechRecognition() {
       recognitionState.interimTranscript = activeInterimTranscript;
       if (latestFinalTranscriptSegment) {
         recognitionState.lastRecognizedPhrase = latestFinalTranscriptSegment;
-        recognitionState.rhymeSuggestions = getRhymeSuggestionsForTranscript(latestFinalTranscriptSegment);
+        recognitionState.rhymeSuggestions = getRhymeSuggestionsFromCatalog(latestFinalTranscriptSegment, rhymeSuggestionCatalog);
+        getRhymeSuggestionsForTranscript(latestFinalTranscriptSegment)
+          .then((rhymeSuggestions) => {
+            if (recognitionState.lastRecognizedPhrase === latestFinalTranscriptSegment) {
+              recognitionState.rhymeSuggestions = rhymeSuggestions;
+              updateInterface();
+            }
+          })
+          .catch(() => {});
       }
       updateInterface();
     },
