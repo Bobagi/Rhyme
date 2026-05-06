@@ -1,11 +1,98 @@
 import { defaultSpeechLanguage } from '../config/speechLanguages.js';
 import { BrowserSpeechRecognitionService } from '../services/browserSpeechRecognitionService.js';
 
+const rhymeSuggestionCatalog = [
+  'coração',
+  'canção',
+  'emoção',
+  'paixão',
+  'razão',
+  'direção',
+  'solidão',
+  'multidão',
+  'perdão',
+  'na mesma direção',
+  'ouvindo uma canção',
+  'cheio de emoção',
+  'noite',
+  'açoite',
+  'foi-se',
+  'sorte',
+  'norte',
+  'forte',
+  'morte',
+  'porto',
+  'conforto',
+  'amor',
+  'dor',
+  'flor',
+  'calor',
+  'valor',
+  'sabor',
+  'favor',
+  'onde nasce o amor',
+  'com todo meu valor',
+  'mar',
+  'olhar',
+  'cantar',
+  'sonhar',
+  'voar',
+  'ficar',
+  'andar',
+  'sem parar',
+  'pronto para sonhar',
+  'vida',
+  'ferida',
+  'partida',
+  'saída',
+  'avenida',
+  'querida',
+  'minha querida',
+  'estrada da vida',
+];
+
+function normalizeRhymeText(textToNormalize) {
+  return textToNormalize
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, '')
+    .trim();
+}
+
+function getRhymeEnding(wordToMatch) {
+  const normalizedWord = normalizeRhymeText(wordToMatch);
+  if (normalizedWord.length <= 3) {
+    return normalizedWord;
+  }
+  return normalizedWord.slice(-3);
+}
+
+function getRhymeSuggestionsForTranscript(transcript) {
+  const spokenWords = normalizeRhymeText(transcript).split(/\s+/).filter(Boolean);
+  const lastSpokenWord = spokenWords.at(-1) || '';
+  const rhymeEnding = getRhymeEnding(lastSpokenWord);
+
+  if (!rhymeEnding) {
+    return [];
+  }
+
+  return rhymeSuggestionCatalog
+    .filter((rhymeSuggestion) => {
+      const normalizedSuggestion = normalizeRhymeText(rhymeSuggestion);
+      const suggestionLastWord = normalizedSuggestion.split(/\s+/).at(-1) || '';
+      return suggestionLastWord !== lastSpokenWord && suggestionLastWord.endsWith(rhymeEnding);
+    })
+    .slice(0, 8);
+}
+
 export function useRealTimeSpeechRecognition() {
   const recognitionState = {
     listeningStatus: 'idle',
     interimTranscript: '',
     finalTranscriptSegments: [],
+    rhymeSuggestions: [],
+    lastRecognizedPhrase: '',
     speechRecognitionError: '',
     microphoneLevel: 0,
     isSupported: true,
@@ -46,17 +133,23 @@ export function useRealTimeSpeechRecognition() {
     },
     onResult: (recognizedSpeechSegments) => {
       let activeInterimTranscript = '';
+      let latestFinalTranscriptSegment = '';
       recognizedSpeechSegments.forEach((recognizedSpeechSegment) => {
         if (!recognizedSpeechSegment.transcript) {
           return;
         }
         if (recognizedSpeechSegment.isFinal) {
           recognitionState.finalTranscriptSegments.push(recognizedSpeechSegment.transcript);
+          latestFinalTranscriptSegment = recognizedSpeechSegment.transcript;
         } else {
           activeInterimTranscript = `${activeInterimTranscript} ${recognizedSpeechSegment.transcript}`.trim();
         }
       });
       recognitionState.interimTranscript = activeInterimTranscript;
+      if (latestFinalTranscriptSegment) {
+        recognitionState.lastRecognizedPhrase = latestFinalTranscriptSegment;
+        recognitionState.rhymeSuggestions = getRhymeSuggestionsForTranscript(latestFinalTranscriptSegment);
+      }
       updateInterface();
     },
   });
