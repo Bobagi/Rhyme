@@ -42,6 +42,13 @@ const rhymeSuggestionCatalog = [
   'sem parar',
   'pronto para sonhar',
   'canja',
+  'ranja',
+  'banja',
+  'briolanja',
+  'calanja',
+  'marmanja',
+  'constranja',
+  'laranja',
   'granja',
   'franja',
   'anja',
@@ -177,7 +184,7 @@ function getRhymeSuggestionsForTranscript(transcript) {
     });
   });
 
-  return rhymeSuggestions.slice(0, 8);
+  return rhymeSuggestions;
 }
 
 export function useRealTimeSpeechRecognition() {
