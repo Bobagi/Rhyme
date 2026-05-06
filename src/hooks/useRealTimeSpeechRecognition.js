@@ -41,6 +41,16 @@ const rhymeSuggestionCatalog = [
   'andar',
   'sem parar',
   'pronto para sonhar',
+  'canja',
+  'granja',
+  'franja',
+  'anja',
+  'arranja',
+  'baixo',
+  'cacho',
+  'facho',
+  'acho',
+  'despacho',
   'vida',
   'ferida',
   'partida',
@@ -147,7 +157,7 @@ function normalizeRhymeText(textToNormalize) {
 function getRhymeEndings(wordToMatch) {
   const normalizedWord = normalizeRhymeText(wordToMatch);
 
-  return [normalizedWord.slice(-4), normalizedWord.slice(-3), normalizedWord.slice(-2), normalizedWord.slice(-1)]
+  return [normalizedWord.slice(-4), normalizedWord.slice(-3), normalizedWord.slice(-2)]
     .filter((rhymeEnding, rhymeEndingIndex, rhymeEndings) => rhymeEnding && rhymeEndings.indexOf(rhymeEnding) === rhymeEndingIndex);
 }
 
