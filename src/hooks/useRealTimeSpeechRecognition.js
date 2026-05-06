@@ -49,6 +49,90 @@ const rhymeSuggestionCatalog = [
   'querida',
   'minha querida',
   'estrada da vida',
+  'casa',
+  'asa',
+  'brasa',
+  'arrasa',
+  'praça',
+  'graça',
+  'massa',
+  'passa',
+  'tempo',
+  'contratempo',
+  'vento',
+  'momento',
+  'sentimento',
+  'pensamento',
+  'talento',
+  'luz',
+  'conduz',
+  'produz',
+  'traduz',
+  'feliz',
+  'raiz',
+  'juiz',
+  'matriz',
+  'país',
+  'teste',
+  'agreste',
+  'veste',
+  'oeste',
+  'hoje',
+  'foge',
+  'longe',
+  'liberdade',
+  'saudade',
+  'verdade',
+  'cidade',
+  'vontade',
+  'beleza',
+  'certeza',
+  'natureza',
+  'tristeza',
+  'pureza',
+  'gente',
+  'frente',
+  'mente',
+  'presente',
+  'semente',
+  'diferente',
+  'antes',
+  'instantes',
+  'gigantes',
+  'distantes',
+  'mundo',
+  'profundo',
+  'segundo',
+  'vagabundo',
+  'tudo',
+  'escudo',
+  'conteúdo',
+  'mudo',
+  'medo',
+  'segredo',
+  'brinquedo',
+  'cedo',
+  'céu',
+  'véu',
+  'papel',
+  'anel',
+  'mel',
+  'final',
+  'sinal',
+  'jornal',
+  'normal',
+  'também',
+  'além',
+  'ninguém',
+  'refém',
+  'enfim',
+  'jardim',
+  'assim',
+  'mim',
+  'atum',
+  'jejum',
+  'comum',
+  'nenhum',
 ];
 
 function normalizeRhymeText(textToNormalize) {
@@ -60,30 +144,30 @@ function normalizeRhymeText(textToNormalize) {
     .trim();
 }
 
-function getRhymeEnding(wordToMatch) {
+function getRhymeEndings(wordToMatch) {
   const normalizedWord = normalizeRhymeText(wordToMatch);
-  if (normalizedWord.length <= 3) {
-    return normalizedWord;
-  }
-  return normalizedWord.slice(-3);
+
+  return [normalizedWord.slice(-4), normalizedWord.slice(-3), normalizedWord.slice(-2), normalizedWord.slice(-1)]
+    .filter((rhymeEnding, rhymeEndingIndex, rhymeEndings) => rhymeEnding && rhymeEndings.indexOf(rhymeEnding) === rhymeEndingIndex);
 }
 
 function getRhymeSuggestionsForTranscript(transcript) {
   const spokenWords = normalizeRhymeText(transcript).split(/\s+/).filter(Boolean);
   const lastSpokenWord = spokenWords.at(-1) || '';
-  const rhymeEnding = getRhymeEnding(lastSpokenWord);
+  const rhymeEndings = getRhymeEndings(lastSpokenWord);
+  const rhymeSuggestions = [];
 
-  if (!rhymeEnding) {
-    return [];
-  }
-
-  return rhymeSuggestionCatalog
-    .filter((rhymeSuggestion) => {
+  rhymeEndings.forEach((rhymeEnding) => {
+    rhymeSuggestionCatalog.forEach((rhymeSuggestion) => {
       const normalizedSuggestion = normalizeRhymeText(rhymeSuggestion);
       const suggestionLastWord = normalizedSuggestion.split(/\s+/).at(-1) || '';
-      return suggestionLastWord !== lastSpokenWord && suggestionLastWord.endsWith(rhymeEnding);
-    })
-    .slice(0, 8);
+      if (suggestionLastWord !== lastSpokenWord && suggestionLastWord.endsWith(rhymeEnding) && !rhymeSuggestions.includes(rhymeSuggestion)) {
+        rhymeSuggestions.push(rhymeSuggestion);
+      }
+    });
+  });
+
+  return rhymeSuggestions.slice(0, 8);
 }
 
 export function useRealTimeSpeechRecognition() {
