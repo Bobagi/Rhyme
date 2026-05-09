@@ -26,6 +26,11 @@ export function renderSpeechRecognitionTester(rootElement) {
         <p id="interimTranscriptValue"></p>
       </section>
       <section class="panel">
+        <strong>Rhymes for the last phrase</strong>
+        <p id="lastRecognizedPhraseValue">-</p>
+        <ul id="rhymeSuggestionsList"></ul>
+      </section>
+      <section class="panel">
         <strong>Final transcript history</strong>
         <ul id="finalTranscriptHistory"></ul>
       </section>
@@ -40,6 +45,8 @@ export function renderSpeechRecognitionTester(rootElement) {
   const speechRecognitionErrorMessage = rootElement.querySelector('#speechRecognitionErrorMessage');
   const interimTranscriptValue = rootElement.querySelector('#interimTranscriptValue');
   const finalTranscriptHistory = rootElement.querySelector('#finalTranscriptHistory');
+  const lastRecognizedPhraseValue = rootElement.querySelector('#lastRecognizedPhraseValue');
+  const rhymeSuggestionsList = rootElement.querySelector('#rhymeSuggestionsList');
   const microphoneLevelBar = rootElement.querySelector('#microphoneLevelBar');
 
   startListeningButton.addEventListener('click', () => speechRecognitionController.startListening());
@@ -57,6 +64,13 @@ export function renderSpeechRecognitionTester(rootElement) {
       : '';
     interimTranscriptValue.textContent = speechRecognitionSnapshot.interimTranscript || '-';
     microphoneLevelBar.style.width = `${speechRecognitionSnapshot.microphoneLevel}%`;
+    lastRecognizedPhraseValue.textContent = speechRecognitionSnapshot.lastRecognizedPhrase || '-';
+    rhymeSuggestionsList.innerHTML = '';
+    speechRecognitionSnapshot.rhymeSuggestions.forEach((rhymeSuggestion) => {
+      const rhymeSuggestionListItem = document.createElement('li');
+      rhymeSuggestionListItem.textContent = rhymeSuggestion;
+      rhymeSuggestionsList.appendChild(rhymeSuggestionListItem);
+    });
     finalTranscriptHistory.innerHTML = '';
     speechRecognitionSnapshot.finalTranscriptSegments.forEach((finalTranscriptSegment) => {
       const historyListItem = document.createElement('li');

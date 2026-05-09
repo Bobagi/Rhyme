@@ -1,11 +1,262 @@
 import { defaultSpeechLanguage } from '../config/speechLanguages.js';
 import { BrowserSpeechRecognitionService } from '../services/browserSpeechRecognitionService.js';
 
+const remoteRhymeWordListUrls = [
+  'https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2016/pt_br/pt_br_50k.txt',
+  'https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2018/en/en_50k.txt',
+  'https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2016/es/es_50k.txt',
+];
+let remoteRhymeWordCatalogPromise = null;
+
+const rhymeSuggestionCatalog = [
+  'coração',
+  'canção',
+  'emoção',
+  'paixão',
+  'razão',
+  'direção',
+  'solidão',
+  'multidão',
+  'perdão',
+  'na mesma direção',
+  'ouvindo uma canção',
+  'cheio de emoção',
+  'noite',
+  'açoite',
+  'foi-se',
+  'sorte',
+  'norte',
+  'forte',
+  'morte',
+  'porto',
+  'conforto',
+  'amor',
+  'dor',
+  'flor',
+  'calor',
+  'valor',
+  'sabor',
+  'favor',
+  'onde nasce o amor',
+  'com todo meu valor',
+  'mar',
+  'rir',
+  'sorrir',
+  'partir',
+  'dormir',
+  'abrir',
+  'sentir',
+  'fugir',
+  'olhar',
+  'cantar',
+  'sonhar',
+  'voar',
+  'ficar',
+  'andar',
+  'sem parar',
+  'pronto para sonhar',
+  'canja',
+  'ranja',
+  'banja',
+  'briolanja',
+  'calanja',
+  'marmanja',
+  'constranja',
+  'laranja',
+  'granja',
+  'franja',
+  'anja',
+  'arranja',
+  'baixo',
+  'cacho',
+  'facho',
+  'acho',
+  'despacho',
+  'vida',
+  'dia',
+  'guia',
+  'alegria',
+  'poesia',
+  'melodia',
+  'harmonia',
+  'fantasia',
+  'energia',
+  'ferida',
+  'partida',
+  'saída',
+  'avenida',
+  'querida',
+  'minha querida',
+  'estrada da vida',
+  'casa',
+  'asa',
+  'brasa',
+  'arrasa',
+  'praça',
+  'graça',
+  'massa',
+  'passa',
+  'tempo',
+  'contratempo',
+  'vento',
+  'momento',
+  'sentimento',
+  'pensamento',
+  'talento',
+  'luz',
+  'conduz',
+  'produz',
+  'traduz',
+  'feliz',
+  'raiz',
+  'juiz',
+  'matriz',
+  'país',
+  'teste',
+  'agreste',
+  'veste',
+  'oeste',
+  'hoje',
+  'foge',
+  'longe',
+  'liberdade',
+  'saudade',
+  'verdade',
+  'cidade',
+  'vontade',
+  'beleza',
+  'certeza',
+  'natureza',
+  'tristeza',
+  'pureza',
+  'gente',
+  'frente',
+  'mente',
+  'presente',
+  'semente',
+  'diferente',
+  'antes',
+  'instantes',
+  'gigantes',
+  'distantes',
+  'mundo',
+  'profundo',
+  'segundo',
+  'vagabundo',
+  'tudo',
+  'escudo',
+  'conteúdo',
+  'mudo',
+  'medo',
+  'segredo',
+  'brinquedo',
+  'cedo',
+  'céu',
+  'véu',
+  'papel',
+  'anel',
+  'mel',
+  'final',
+  'sinal',
+  'jornal',
+  'normal',
+  'também',
+  'além',
+  'ninguém',
+  'refém',
+  'enfim',
+  'jardim',
+  'assim',
+  'mim',
+  'atum',
+  'jejum',
+  'comum',
+  'nenhum',
+];
+
+function normalizeRhymeText(textToNormalize) {
+  return textToNormalize
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9\s]/g, '')
+    .trim();
+}
+
+function getRhymeEndings(wordToMatch, shouldIncludeLooseEnding = false) {
+  const normalizedWord = normalizeRhymeText(wordToMatch);
+  const rhymeEndings = [normalizedWord.slice(-4), normalizedWord.slice(-3)];
+
+  if (shouldIncludeLooseEnding) {
+    rhymeEndings.push(normalizedWord.slice(-2));
+  }
+
+  return rhymeEndings
+    .filter((rhymeEnding, rhymeEndingIndex) => rhymeEnding && rhymeEndings.indexOf(rhymeEnding) === rhymeEndingIndex);
+}
+
+function isValidRhymeWord(rhymeWord) {
+  const normalizedRhymeWord = normalizeRhymeText(rhymeWord);
+
+  return rhymeWord === rhymeWord.toLowerCase() && normalizedRhymeWord.length > 2 && /^[a-z]+$/.test(normalizedRhymeWord) && !/[\s-]/.test(rhymeWord);
+}
+
+function getRhymeSuggestionsFromCatalog(transcript, rhymeWordCatalog, shouldIncludeLooseEnding = false) {
+  const spokenWords = normalizeRhymeText(transcript).split(/\s+/).filter(Boolean);
+  const lastSpokenWord = spokenWords.at(-1) || '';
+  const rhymeEndings = getRhymeEndings(lastSpokenWord, shouldIncludeLooseEnding);
+  const rhymeSuggestions = [];
+
+  rhymeEndings.forEach((rhymeEnding) => {
+    rhymeWordCatalog.forEach((rhymeSuggestion) => {
+      if (!isValidRhymeWord(rhymeSuggestion)) {
+        return;
+      }
+      const normalizedSuggestion = normalizeRhymeText(rhymeSuggestion);
+      const suggestionLastWord = normalizedSuggestion.split(/\s+/).at(-1) || '';
+      if (suggestionLastWord !== lastSpokenWord && suggestionLastWord.endsWith(rhymeEnding) && !rhymeSuggestions.includes(rhymeSuggestion)) {
+        rhymeSuggestions.push(rhymeSuggestion);
+      }
+    });
+  });
+
+  return rhymeSuggestions;
+}
+
+function isValidRemoteRhymeWord(remoteRhymeWord) {
+  return isValidRhymeWord(remoteRhymeWord);
+}
+
+function parseRemoteRhymeWordList(remoteRhymeWordListText) {
+  return remoteRhymeWordListText
+    .split(/\r?\n/)
+    .map((remoteRhymeWordListLine) => remoteRhymeWordListLine.trim().split(/\s+/)[0])
+    .filter(isValidRemoteRhymeWord);
+}
+
+function getRemoteRhymeWordCatalog() {
+  if (!remoteRhymeWordCatalogPromise) {
+    remoteRhymeWordCatalogPromise = Promise.all(remoteRhymeWordListUrls.map((remoteRhymeWordListUrl) => fetch(remoteRhymeWordListUrl)
+      .then((remoteRhymeWordListResponse) => remoteRhymeWordListResponse.text())
+      .then(parseRemoteRhymeWordList)))
+      .then((remoteRhymeWordCatalogs) => remoteRhymeWordCatalogs.flat());
+  }
+
+  return remoteRhymeWordCatalogPromise;
+}
+
+async function getRhymeSuggestionsForTranscript(transcript) {
+  const remoteRhymeWordCatalog = await getRemoteRhymeWordCatalog();
+  return getRhymeSuggestionsFromCatalog(transcript, [...remoteRhymeWordCatalog, ...rhymeSuggestionCatalog]);
+}
+
 export function useRealTimeSpeechRecognition() {
   const recognitionState = {
     listeningStatus: 'idle',
     interimTranscript: '',
     finalTranscriptSegments: [],
+    rhymeSuggestions: [],
+    lastRecognizedPhrase: '',
     speechRecognitionError: '',
     microphoneLevel: 0,
     isSupported: true,
@@ -46,17 +297,31 @@ export function useRealTimeSpeechRecognition() {
     },
     onResult: (recognizedSpeechSegments) => {
       let activeInterimTranscript = '';
+      let latestFinalTranscriptSegment = '';
       recognizedSpeechSegments.forEach((recognizedSpeechSegment) => {
         if (!recognizedSpeechSegment.transcript) {
           return;
         }
         if (recognizedSpeechSegment.isFinal) {
           recognitionState.finalTranscriptSegments.push(recognizedSpeechSegment.transcript);
+          latestFinalTranscriptSegment = recognizedSpeechSegment.transcript;
         } else {
           activeInterimTranscript = `${activeInterimTranscript} ${recognizedSpeechSegment.transcript}`.trim();
         }
       });
       recognitionState.interimTranscript = activeInterimTranscript;
+      if (latestFinalTranscriptSegment) {
+        recognitionState.lastRecognizedPhrase = latestFinalTranscriptSegment;
+        recognitionState.rhymeSuggestions = getRhymeSuggestionsFromCatalog(latestFinalTranscriptSegment, rhymeSuggestionCatalog, true);
+        getRhymeSuggestionsForTranscript(latestFinalTranscriptSegment)
+          .then((rhymeSuggestions) => {
+            if (recognitionState.lastRecognizedPhrase === latestFinalTranscriptSegment) {
+              recognitionState.rhymeSuggestions = rhymeSuggestions;
+              updateInterface();
+            }
+          })
+          .catch(() => {});
+      }
       updateInterface();
     },
   });
