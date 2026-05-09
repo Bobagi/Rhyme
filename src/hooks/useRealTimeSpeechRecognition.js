@@ -1,7 +1,11 @@
 import { defaultSpeechLanguage } from '../config/speechLanguages.js';
 import { BrowserSpeechRecognitionService } from '../services/browserSpeechRecognitionService.js';
 
-const remoteRhymeWordListUrl = 'https://raw.githubusercontent.com/pythonprobr/palavras/master/palavras.txt';
+const remoteRhymeWordListUrls = [
+  'https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2016/pt_br/pt_br_50k.txt',
+  'https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2018/en/en_50k.txt',
+  'https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2016/es/es_50k.txt',
+];
 let remoteRhymeWordCatalogPromise = null;
 
 const rhymeSuggestionCatalog = [
@@ -223,14 +227,19 @@ function isValidRemoteRhymeWord(remoteRhymeWord) {
   return isValidRhymeWord(remoteRhymeWord);
 }
 
+function parseRemoteRhymeWordList(remoteRhymeWordListText) {
+  return remoteRhymeWordListText
+    .split(/\r?\n/)
+    .map((remoteRhymeWordListLine) => remoteRhymeWordListLine.trim().split(/\s+/)[0])
+    .filter(isValidRemoteRhymeWord);
+}
+
 function getRemoteRhymeWordCatalog() {
   if (!remoteRhymeWordCatalogPromise) {
-    remoteRhymeWordCatalogPromise = fetch(remoteRhymeWordListUrl)
+    remoteRhymeWordCatalogPromise = Promise.all(remoteRhymeWordListUrls.map((remoteRhymeWordListUrl) => fetch(remoteRhymeWordListUrl)
       .then((remoteRhymeWordListResponse) => remoteRhymeWordListResponse.text())
-      .then((remoteRhymeWordListText) => remoteRhymeWordListText
-        .split(/\r?\n/)
-        .map((remoteRhymeWord) => remoteRhymeWord.trim())
-        .filter(isValidRemoteRhymeWord));
+      .then(parseRemoteRhymeWordList)))
+      .then((remoteRhymeWordCatalogs) => remoteRhymeWordCatalogs.flat());
   }
 
   return remoteRhymeWordCatalogPromise;
@@ -238,7 +247,7 @@ function getRemoteRhymeWordCatalog() {
 
 async function getRhymeSuggestionsForTranscript(transcript) {
   const remoteRhymeWordCatalog = await getRemoteRhymeWordCatalog();
-  return getRhymeSuggestionsFromCatalog(transcript, [...rhymeSuggestionCatalog, ...remoteRhymeWordCatalog]);
+  return getRhymeSuggestionsFromCatalog(transcript, [...remoteRhymeWordCatalog, ...rhymeSuggestionCatalog]);
 }
 
 export function useRealTimeSpeechRecognition() {
