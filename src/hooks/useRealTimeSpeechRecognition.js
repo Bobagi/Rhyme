@@ -2,7 +2,6 @@ import { defaultSpeechLanguage } from '../config/speechLanguages.js';
 import { BrowserSpeechRecognitionService } from '../services/browserSpeechRecognitionService.js';
 
 const remoteRhymeWordListUrl = 'https://raw.githubusercontent.com/pythonprobr/palavras/master/palavras.txt';
-const maxRhymeSuggestions = 50;
 let remoteRhymeWordCatalogPromise = null;
 
 const rhymeSuggestionCatalog = [
@@ -208,7 +207,7 @@ function getRhymeSuggestionsFromCatalog(transcript, rhymeWordCatalog, shouldIncl
     });
   });
 
-  return rhymeSuggestions.slice(0, maxRhymeSuggestions);
+  return rhymeSuggestions;
 }
 
 function isValidRemoteRhymeWord(remoteRhymeWord) {
