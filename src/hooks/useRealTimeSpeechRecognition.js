@@ -2,6 +2,7 @@ import { defaultSpeechLanguage } from '../config/speechLanguages.js';
 import { BrowserSpeechRecognitionService } from '../services/browserSpeechRecognitionService.js';
 
 const remoteRhymeWordListUrl = 'https://raw.githubusercontent.com/pythonprobr/palavras/master/palavras.txt';
+const maxRhymeSuggestions = 50;
 let remoteRhymeWordCatalogPromise = null;
 
 const rhymeSuggestionCatalog = [
@@ -179,17 +180,22 @@ function normalizeRhymeText(textToNormalize) {
     .trim();
 }
 
-function getRhymeEndings(wordToMatch) {
+function getRhymeEndings(wordToMatch, shouldIncludeLooseEnding = false) {
   const normalizedWord = normalizeRhymeText(wordToMatch);
+  const rhymeEndings = [normalizedWord.slice(-4), normalizedWord.slice(-3)];
 
-  return [normalizedWord.slice(-4), normalizedWord.slice(-3), normalizedWord.slice(-2)]
-    .filter((rhymeEnding, rhymeEndingIndex, rhymeEndings) => rhymeEnding && rhymeEndings.indexOf(rhymeEnding) === rhymeEndingIndex);
+  if (shouldIncludeLooseEnding) {
+    rhymeEndings.push(normalizedWord.slice(-2));
+  }
+
+  return rhymeEndings
+    .filter((rhymeEnding, rhymeEndingIndex) => rhymeEnding && rhymeEndings.indexOf(rhymeEnding) === rhymeEndingIndex);
 }
 
-function getRhymeSuggestionsFromCatalog(transcript, rhymeWordCatalog) {
+function getRhymeSuggestionsFromCatalog(transcript, rhymeWordCatalog, shouldIncludeLooseEnding = false) {
   const spokenWords = normalizeRhymeText(transcript).split(/\s+/).filter(Boolean);
   const lastSpokenWord = spokenWords.at(-1) || '';
-  const rhymeEndings = getRhymeEndings(lastSpokenWord);
+  const rhymeEndings = getRhymeEndings(lastSpokenWord, shouldIncludeLooseEnding);
   const rhymeSuggestions = [];
 
   rhymeEndings.forEach((rhymeEnding) => {
@@ -202,14 +208,23 @@ function getRhymeSuggestionsFromCatalog(transcript, rhymeWordCatalog) {
     });
   });
 
-  return rhymeSuggestions;
+  return rhymeSuggestions.slice(0, maxRhymeSuggestions);
+}
+
+function isValidRemoteRhymeWord(remoteRhymeWord) {
+  const normalizedRemoteRhymeWord = normalizeRhymeText(remoteRhymeWord);
+
+  return normalizedRemoteRhymeWord.length > 2 && /^[a-z]+$/.test(normalizedRemoteRhymeWord);
 }
 
 function getRemoteRhymeWordCatalog() {
   if (!remoteRhymeWordCatalogPromise) {
     remoteRhymeWordCatalogPromise = fetch(remoteRhymeWordListUrl)
       .then((remoteRhymeWordListResponse) => remoteRhymeWordListResponse.text())
-      .then((remoteRhymeWordListText) => remoteRhymeWordListText.split(/\r?\n/).map((remoteRhymeWord) => remoteRhymeWord.trim()).filter(Boolean));
+      .then((remoteRhymeWordListText) => remoteRhymeWordListText
+        .split(/\r?\n/)
+        .map((remoteRhymeWord) => remoteRhymeWord.trim())
+        .filter(isValidRemoteRhymeWord));
   }
 
   return remoteRhymeWordCatalogPromise;
@@ -282,7 +297,7 @@ export function useRealTimeSpeechRecognition() {
       recognitionState.interimTranscript = activeInterimTranscript;
       if (latestFinalTranscriptSegment) {
         recognitionState.lastRecognizedPhrase = latestFinalTranscriptSegment;
-        recognitionState.rhymeSuggestions = getRhymeSuggestionsFromCatalog(latestFinalTranscriptSegment, rhymeSuggestionCatalog);
+        recognitionState.rhymeSuggestions = getRhymeSuggestionsFromCatalog(latestFinalTranscriptSegment, rhymeSuggestionCatalog, true);
         getRhymeSuggestionsForTranscript(latestFinalTranscriptSegment)
           .then((rhymeSuggestions) => {
             if (recognitionState.lastRecognizedPhrase === latestFinalTranscriptSegment) {
