@@ -213,7 +213,7 @@ function getRhymeSuggestionsFromCatalog(transcript, rhymeWordCatalog, shouldIncl
 function isValidRemoteRhymeWord(remoteRhymeWord) {
   const normalizedRemoteRhymeWord = normalizeRhymeText(remoteRhymeWord);
 
-  return normalizedRemoteRhymeWord.length > 2 && /^[a-z]+$/.test(normalizedRemoteRhymeWord);
+  return remoteRhymeWord === remoteRhymeWord.toLowerCase() && normalizedRemoteRhymeWord.length > 2 && /^[a-z]+$/.test(normalizedRemoteRhymeWord);
 }
 
 function getRemoteRhymeWordCatalog() {
