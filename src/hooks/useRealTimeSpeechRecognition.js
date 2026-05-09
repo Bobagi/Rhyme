@@ -191,6 +191,12 @@ function getRhymeEndings(wordToMatch, shouldIncludeLooseEnding = false) {
     .filter((rhymeEnding, rhymeEndingIndex) => rhymeEnding && rhymeEndings.indexOf(rhymeEnding) === rhymeEndingIndex);
 }
 
+function isValidRhymeWord(rhymeWord) {
+  const normalizedRhymeWord = normalizeRhymeText(rhymeWord);
+
+  return rhymeWord === rhymeWord.toLowerCase() && normalizedRhymeWord.length > 2 && /^[a-z]+$/.test(normalizedRhymeWord) && !/[\s-]/.test(rhymeWord);
+}
+
 function getRhymeSuggestionsFromCatalog(transcript, rhymeWordCatalog, shouldIncludeLooseEnding = false) {
   const spokenWords = normalizeRhymeText(transcript).split(/\s+/).filter(Boolean);
   const lastSpokenWord = spokenWords.at(-1) || '';
@@ -199,6 +205,9 @@ function getRhymeSuggestionsFromCatalog(transcript, rhymeWordCatalog, shouldIncl
 
   rhymeEndings.forEach((rhymeEnding) => {
     rhymeWordCatalog.forEach((rhymeSuggestion) => {
+      if (!isValidRhymeWord(rhymeSuggestion)) {
+        return;
+      }
       const normalizedSuggestion = normalizeRhymeText(rhymeSuggestion);
       const suggestionLastWord = normalizedSuggestion.split(/\s+/).at(-1) || '';
       if (suggestionLastWord !== lastSpokenWord && suggestionLastWord.endsWith(rhymeEnding) && !rhymeSuggestions.includes(rhymeSuggestion)) {
@@ -211,9 +220,7 @@ function getRhymeSuggestionsFromCatalog(transcript, rhymeWordCatalog, shouldIncl
 }
 
 function isValidRemoteRhymeWord(remoteRhymeWord) {
-  const normalizedRemoteRhymeWord = normalizeRhymeText(remoteRhymeWord);
-
-  return remoteRhymeWord === remoteRhymeWord.toLowerCase() && normalizedRemoteRhymeWord.length > 2 && /^[a-z]+$/.test(normalizedRemoteRhymeWord);
+  return isValidRhymeWord(remoteRhymeWord);
 }
 
 function getRemoteRhymeWordCatalog() {
