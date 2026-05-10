@@ -81,15 +81,13 @@ export function renderSpeechRecognitionTester(rootElement) {
         <section class="panel large selectable-panel" id="rhymePanel">
           <div class="panel-title">
             <strong>Rhymes for the last phrase</strong>
-            <label class="language-filter">
+            <div class="language-filter" aria-label="Rhyme language filter">
               <span>Language</span>
-              <select id="rhymeLanguageFilter">
-                <option value="all">All</option>
-                <option value="pt">Português</option>
-                <option value="en">English</option>
-                <option value="es">Español</option>
-              </select>
-            </label>
+              <button class="language-filter-option is-active" type="button" data-rhyme-language-filter="all">All</button>
+              <button class="language-filter-option" type="button" data-rhyme-language-filter="pt">PT</button>
+              <button class="language-filter-option" type="button" data-rhyme-language-filter="en">EN</button>
+              <button class="language-filter-option" type="button" data-rhyme-language-filter="es">ES</button>
+            </div>
           </div>
           <p class="transcript" id="lastRecognizedPhraseValue">-</p>
           <ul id="rhymeSuggestionsList"></ul>
@@ -113,7 +111,7 @@ export function renderSpeechRecognitionTester(rootElement) {
   const finalTranscriptHistory = rootElement.querySelector('#finalTranscriptHistory');
   const lastRecognizedPhraseValue = rootElement.querySelector('#lastRecognizedPhraseValue');
   const rhymeSuggestionsList = rootElement.querySelector('#rhymeSuggestionsList');
-  const rhymeLanguageFilter = rootElement.querySelector('#rhymeLanguageFilter');
+  const rhymeLanguageFilterOptions = [...rootElement.querySelectorAll('[data-rhyme-language-filter]')];
   const microphoneLevelBar = rootElement.querySelector('#microphoneLevelBar');
   const microphoneLabelValue = rootElement.querySelector('#microphoneLabelValue');
   const rhymePanel = rootElement.querySelector('#rhymePanel');
@@ -143,8 +141,10 @@ export function renderSpeechRecognitionTester(rootElement) {
   document.addEventListener('selectionchange', updateRhymeSelectionState);
   document.addEventListener('pointerup', finishRhymeSelection);
 
-  rhymeLanguageFilter.addEventListener('change', () => {
-    speechRecognitionController.setRhymeLanguageFilter(rhymeLanguageFilter.value);
+  rhymeLanguageFilterOptions.forEach((rhymeLanguageFilterOption) => {
+    rhymeLanguageFilterOption.addEventListener('click', () => {
+      speechRecognitionController.setRhymeLanguageFilter(rhymeLanguageFilterOption.dataset.rhymeLanguageFilter);
+    });
   });
 
   toggleListeningButton.addEventListener('click', () => {
@@ -181,9 +181,9 @@ export function renderSpeechRecognitionTester(rootElement) {
     setTextContentIfChanged(interimTranscriptValue, speechRecognitionSnapshot.interimTranscript || '-');
     setTextContentIfChanged(lastRecognizedPhraseValue, speechRecognitionSnapshot.lastRecognizedPhrase || '-');
     renderListItemsIfChanged(rhymeSuggestionsList, speechRecognitionSnapshot.rhymeSuggestions);
-    if (rhymeLanguageFilter.value !== speechRecognitionSnapshot.rhymeLanguageFilter) {
-      rhymeLanguageFilter.value = speechRecognitionSnapshot.rhymeLanguageFilter;
-    }
+    rhymeLanguageFilterOptions.forEach((rhymeLanguageFilterOption) => {
+      rhymeLanguageFilterOption.classList.toggle('is-active', rhymeLanguageFilterOption.dataset.rhymeLanguageFilter === speechRecognitionSnapshot.rhymeLanguageFilter);
+    });
     renderListItemsIfChanged(finalTranscriptHistory, speechRecognitionSnapshot.finalTranscriptSegments);
   });
 

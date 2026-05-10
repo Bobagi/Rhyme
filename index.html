@@ -177,20 +177,26 @@
       .language-filter {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
+        gap: 6px;
         color: var(--yellow-soft);
         letter-spacing: 0.06em;
       }
 
-      .language-filter select {
+      .language-filter-option {
         border: 1px solid rgba(255, 212, 59, 0.24);
         border-radius: 999px;
-        padding: 7px 28px 7px 12px;
+        padding: 6px 10px;
         color: var(--yellow-soft);
         background: rgba(255, 212, 59, 0.08);
         font: inherit;
-        font-size: 0.78rem;
-        font-weight: 850;
+        font-size: 0.72rem;
+        font-weight: 950;
+        cursor: pointer;
+      }
+
+      .language-filter-option.is-active {
+        color: #090909;
+        background: linear-gradient(135deg, var(--yellow), var(--yellow-strong));
       }
 
       .transcript {
