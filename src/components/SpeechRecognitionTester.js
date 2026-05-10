@@ -22,6 +22,11 @@ function renderListItemsIfChanged(listElement, nextItems) {
 }
 
 
+function isGoogleChromeBrowser() {
+  const userAgent = navigator.userAgent || '';
+  return /Chrome|CriOS/.test(userAgent) && !/Edg|OPR|Opera|SamsungBrowser/.test(userAgent) && !navigator.brave;
+}
+
 async function getBrowserSelectedMicrophoneLabel() {
   if (!navigator.mediaDevices?.enumerateDevices) {
     return 'Mic: Browser default microphone';
@@ -145,7 +150,7 @@ export function renderSpeechRecognitionTester(rootElement) {
     setTextContentIfChanged(listenIcon, isListening ? '■' : '🎙');
     toggleListeningButton.classList.toggle('is-listening', isListening);
     setTextContentIfChanged(unsupportedBrowserMessage, speechRecognitionSnapshot.isSupported ? '' : 'This browser does not support the Web Speech API.');
-    setTextContentIfChanged(braveBrowserMessage, 'Speech recognition may be unstable depending on the browser. Use Google Chrome for the best experience.');
+    setTextContentIfChanged(braveBrowserMessage, isGoogleChromeBrowser() ? '' : 'Speech recognition may be unstable depending on this browser. Use Google Chrome for the best experience.');
     setTextContentIfChanged(speechRecognitionErrorMessage, speechRecognitionSnapshot.speechRecognitionError
       ? speechRecognitionErrorMessages[speechRecognitionSnapshot.speechRecognitionError] || `Speech recognition error: ${speechRecognitionSnapshot.speechRecognitionError}`
       : '');
