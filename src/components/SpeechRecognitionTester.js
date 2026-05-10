@@ -84,9 +84,9 @@ export function renderSpeechRecognitionTester(rootElement) {
             <div class="language-filter" aria-label="Rhyme language filter">
               <span>Language</span>
               <button class="language-filter-option is-active" type="button" data-rhyme-language-filter="all">All</button>
-              <button class="language-filter-option" type="button" data-rhyme-language-filter="pt">PT</button>
-              <button class="language-filter-option" type="button" data-rhyme-language-filter="en">EN</button>
-              <button class="language-filter-option" type="button" data-rhyme-language-filter="es">ES</button>
+              <button class="language-filter-option" type="button" data-rhyme-language-filter="pt">🇧🇷</button>
+              <button class="language-filter-option" type="button" data-rhyme-language-filter="en">🇺🇸</button>
+              <button class="language-filter-option" type="button" data-rhyme-language-filter="es">🇪🇸</button>
             </div>
           </div>
           <p class="transcript" id="lastRecognizedPhraseValue">-</p>
@@ -126,7 +126,11 @@ export function renderSpeechRecognitionTester(rootElement) {
   const updateRhymeSelectionState = () => {
     isSelectingRhymeText = isPointerSelectingRhymeText || selectionIntersectsElement(rhymePanel);
   };
-  const startRhymeSelection = () => {
+  const startRhymeSelection = (pointerEvent) => {
+    if (pointerEvent.target.closest('.language-filter')) {
+      return;
+    }
+
     isPointerSelectingRhymeText = true;
     updateRhymeSelectionState();
   };
