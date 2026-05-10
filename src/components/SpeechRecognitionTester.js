@@ -84,9 +84,9 @@ export function renderSpeechRecognitionTester(rootElement) {
             <div class="language-filter" aria-label="Rhyme language filter">
               <span>Language</span>
               <button class="language-filter-option is-active" type="button" data-rhyme-language-filter="all">All</button>
-              <button class="language-filter-option" type="button" data-rhyme-language-filter="pt">🇧🇷</button>
-              <button class="language-filter-option" type="button" data-rhyme-language-filter="en">🇺🇸</button>
-              <button class="language-filter-option" type="button" data-rhyme-language-filter="es">🇪🇸</button>
+              <button class="language-filter-option" type="button" data-rhyme-language-filter="pt" aria-label="Português"><span class="flag flag-br"></span></button>
+              <button class="language-filter-option" type="button" data-rhyme-language-filter="en" aria-label="English"><span class="flag flag-us"></span></button>
+              <button class="language-filter-option" type="button" data-rhyme-language-filter="es" aria-label="Español"><span class="flag flag-es"></span></button>
             </div>
           </div>
           <p class="transcript" id="lastRecognizedPhraseValue">-</p>
