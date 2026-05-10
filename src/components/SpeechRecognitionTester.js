@@ -7,17 +7,28 @@ function setTextContentIfChanged(element, nextTextContent) {
 }
 
 function renderListItemsIfChanged(listElement, nextItems) {
-  if (listElement.dataset.items === JSON.stringify(nextItems)) {
+  const serializedNextItems = JSON.stringify(nextItems);
+  if (listElement.dataset.items === serializedNextItems) {
     return;
   }
 
-  listElement.dataset.items = JSON.stringify(nextItems);
+  listElement.dataset.items = serializedNextItems;
   listElement.innerHTML = '';
   nextItems.forEach((nextItem) => {
     const listItem = document.createElement('li');
     listItem.textContent = nextItem;
     listElement.appendChild(listItem);
   });
+}
+
+function selectionIntersectsElement(element) {
+  const currentSelection = window.getSelection();
+  if (!currentSelection || currentSelection.rangeCount === 0 || currentSelection.isCollapsed) {
+    return false;
+  }
+
+  const selectedRange = currentSelection.getRangeAt(0);
+  return element.contains(selectedRange.commonAncestorContainer) || selectedRange.intersectsNode(element);
 }
 
 export function renderSpeechRecognitionTester(rootElement) {
@@ -29,45 +40,41 @@ export function renderSpeechRecognitionTester(rootElement) {
         <div>
           <p class="eyebrow">Live rhyme studio</p>
           <h1>Rhyme <span>Trainer</span></h1>
-          <p class="intro">Capture seu freestyle em tempo real, acompanhe a última frase reconhecida e encontre rimas rápidas sem pausar o microfone.</p>
-          <div class="controls">
-            <button id="startListeningButton" type="button">Start listening</button>
-            <button class="secondary" id="stopListeningButton" type="button">Stop listening</button>
-          </div>
+          <p class="intro">Capture seu freestyle em tempo real, veja a última frase e selecione qualquer rima sem precisar parar o microfone.</p>
         </div>
-        <aside class="status-card">
-          <div class="status" id="listeningStatusValue">Status: idle</div>
-          <div class="warning" id="unsupportedBrowserMessage"></div>
-          <div class="warning" id="braveBrowserMessage"></div>
-          <div class="error" id="speechRecognitionErrorMessage"></div>
-        </aside>
+        <button class="listen-button" id="toggleListeningButton" type="button">Start listening</button>
       </header>
+      <section class="status-row">
+        <div class="status" id="listeningStatusValue">Status: idle</div>
+        <div class="warning" id="unsupportedBrowserMessage"></div>
+        <div class="warning" id="braveBrowserMessage"></div>
+        <div class="error" id="speechRecognitionErrorMessage"></div>
+      </section>
       <section class="grid">
-        <section class="panel">
-          <strong>Microphone level</strong>
+        <section class="panel compact">
+          <strong class="panel-title">Microphone level</strong>
           <div class="meter">
             <div id="microphoneLevelBar"></div>
           </div>
         </section>
-        <section class="panel">
-          <strong>Interim transcript</strong>
+        <section class="panel compact">
+          <strong class="panel-title">Interim transcript</strong>
           <p class="transcript" id="interimTranscriptValue">-</p>
         </section>
-        <section class="panel featured">
-          <strong>Rhymes for the last phrase</strong>
+        <section class="panel large selectable-panel" id="rhymePanel">
+          <strong class="panel-title">Rhymes for the last phrase</strong>
           <p class="transcript" id="lastRecognizedPhraseValue">-</p>
           <ul id="rhymeSuggestionsList"></ul>
         </section>
-        <section class="panel featured">
-          <strong>Final transcript history</strong>
+        <section class="panel large selectable-panel">
+          <strong class="panel-title">Final transcript history</strong>
           <ul id="finalTranscriptHistory"></ul>
         </section>
       </section>
     </main>
   `;
 
-  const startListeningButton = rootElement.querySelector('#startListeningButton');
-  const stopListeningButton = rootElement.querySelector('#stopListeningButton');
+  const toggleListeningButton = rootElement.querySelector('#toggleListeningButton');
   const listeningStatusValue = rootElement.querySelector('#listeningStatusValue');
   const unsupportedBrowserMessage = rootElement.querySelector('#unsupportedBrowserMessage');
   const braveBrowserMessage = rootElement.querySelector('#braveBrowserMessage');
@@ -77,28 +84,68 @@ export function renderSpeechRecognitionTester(rootElement) {
   const lastRecognizedPhraseValue = rootElement.querySelector('#lastRecognizedPhraseValue');
   const rhymeSuggestionsList = rootElement.querySelector('#rhymeSuggestionsList');
   const microphoneLevelBar = rootElement.querySelector('#microphoneLevelBar');
+  const rhymePanel = rootElement.querySelector('#rhymePanel');
+  let isPointerSelectingRhymeText = false;
+  let isSelectingRhymeText = false;
+  let latestListeningStatus = 'idle';
 
-  startListeningButton.addEventListener('click', () => speechRecognitionController.startListening());
-  stopListeningButton.addEventListener('click', () => speechRecognitionController.stopListening());
+  const updateRhymeSelectionState = () => {
+    isSelectingRhymeText = isPointerSelectingRhymeText || selectionIntersectsElement(rhymePanel);
+  };
+  const startRhymeSelection = () => {
+    isPointerSelectingRhymeText = true;
+    updateRhymeSelectionState();
+  };
+  const finishRhymeSelection = () => {
+    window.setTimeout(() => {
+      isPointerSelectingRhymeText = false;
+      updateRhymeSelectionState();
+    }, 0);
+  };
+
+  rhymePanel.addEventListener('pointerdown', startRhymeSelection);
+  document.addEventListener('selectionchange', updateRhymeSelectionState);
+  document.addEventListener('pointerup', finishRhymeSelection);
+
+  toggleListeningButton.addEventListener('click', () => {
+    if (latestListeningStatus === 'listening' || latestListeningStatus === 'starting') {
+      speechRecognitionController.stopListening();
+      return;
+    }
+
+    speechRecognitionController.startListening();
+  });
 
   const unsubscribe = speechRecognitionController.subscribe((speechRecognitionSnapshot) => {
     const speechRecognitionErrorMessages = {
       network: 'Speech recognition error: network. Reconnecting automatically. If it persists, open the forwarded Codespaces HTTPS URL in Google Chrome and allow microphone access.',
     };
+    const isListening = speechRecognitionSnapshot.listeningStatus === 'listening' || speechRecognitionSnapshot.listeningStatus === 'starting';
+    latestListeningStatus = speechRecognitionSnapshot.listeningStatus;
+    toggleListeningButton.textContent = isListening ? 'Stop listening' : 'Start listening';
+    toggleListeningButton.classList.toggle('is-listening', isListening);
     setTextContentIfChanged(listeningStatusValue, `Status: ${speechRecognitionSnapshot.listeningStatus}`);
     setTextContentIfChanged(unsupportedBrowserMessage, speechRecognitionSnapshot.isSupported ? '' : 'This browser does not support the Web Speech API.');
     setTextContentIfChanged(braveBrowserMessage, navigator.brave ? 'Brave may block or break Web Speech API transcription. Use Google Chrome for this MVP.' : '');
     setTextContentIfChanged(speechRecognitionErrorMessage, speechRecognitionSnapshot.speechRecognitionError
       ? speechRecognitionErrorMessages[speechRecognitionSnapshot.speechRecognitionError] || `Speech recognition error: ${speechRecognitionSnapshot.speechRecognitionError}`
       : '');
-    setTextContentIfChanged(interimTranscriptValue, speechRecognitionSnapshot.interimTranscript || '-');
     microphoneLevelBar.style.width = `${speechRecognitionSnapshot.microphoneLevel}%`;
+
+    if (isSelectingRhymeText) {
+      return;
+    }
+
+    setTextContentIfChanged(interimTranscriptValue, speechRecognitionSnapshot.interimTranscript || '-');
     setTextContentIfChanged(lastRecognizedPhraseValue, speechRecognitionSnapshot.lastRecognizedPhrase || '-');
     renderListItemsIfChanged(rhymeSuggestionsList, speechRecognitionSnapshot.rhymeSuggestions);
     renderListItemsIfChanged(finalTranscriptHistory, speechRecognitionSnapshot.finalTranscriptSegments);
   });
 
   return () => {
+    rhymePanel.removeEventListener('pointerdown', startRhymeSelection);
+    document.removeEventListener('selectionchange', updateRhymeSelectionState);
+    document.removeEventListener('pointerup', finishRhymeSelection);
     unsubscribe();
     speechRecognitionController.dispose();
   };
