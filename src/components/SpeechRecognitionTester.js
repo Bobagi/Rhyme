@@ -41,8 +41,8 @@ export function renderSpeechRecognitionTester(rootElement) {
           <p class="eyebrow">Live rhyme studio</p>
           <h1>Rhyme <span>Trainer</span></h1>
           <p class="intro">Capture seu freestyle em tempo real, veja a última frase e selecione qualquer rima sem precisar parar o microfone.</p>
+          <button class="listen-button" id="toggleListeningButton" type="button"><span class="listen-icon">🎙</span><span id="toggleListeningButtonLabel">Start listening</span></button>
         </div>
-        <button class="listen-button" id="toggleListeningButton" type="button"><span class="listen-icon">▶</span><span id="toggleListeningButtonLabel">Start</span></button>
       </header>
       <section class="status-row" hidden>
         <div class="warning" id="unsupportedBrowserMessage"></div>
@@ -123,8 +123,8 @@ export function renderSpeechRecognitionTester(rootElement) {
     };
     const isListening = speechRecognitionSnapshot.listeningStatus === 'listening' || speechRecognitionSnapshot.listeningStatus === 'starting';
     latestListeningStatus = speechRecognitionSnapshot.listeningStatus;
-    setTextContentIfChanged(toggleListeningButtonLabel, isListening ? 'Stop' : 'Start');
-    setTextContentIfChanged(listenIcon, isListening ? '■' : '▶');
+    setTextContentIfChanged(toggleListeningButtonLabel, isListening ? 'Stop listening' : 'Start listening');
+    setTextContentIfChanged(listenIcon, isListening ? '■' : '🎙');
     toggleListeningButton.classList.toggle('is-listening', isListening);
     setTextContentIfChanged(unsupportedBrowserMessage, speechRecognitionSnapshot.isSupported ? '' : 'This browser does not support the Web Speech API.');
     setTextContentIfChanged(braveBrowserMessage, navigator.brave ? 'Brave may block or break Web Speech API transcription. Use Google Chrome for this MVP.' : '');
