@@ -42,10 +42,9 @@ export function renderSpeechRecognitionTester(rootElement) {
           <h1>Rhyme <span>Trainer</span></h1>
           <p class="intro">Capture seu freestyle em tempo real, veja a última frase e selecione qualquer rima sem precisar parar o microfone.</p>
         </div>
-        <button class="listen-button" id="toggleListeningButton" type="button">Start listening</button>
+        <button class="listen-button" id="toggleListeningButton" type="button"><span class="listen-icon">▶</span><span id="toggleListeningButtonLabel">Start</span></button>
       </header>
-      <section class="status-row">
-        <div class="status" id="listeningStatusValue">Status: idle</div>
+      <section class="status-row" hidden>
         <div class="warning" id="unsupportedBrowserMessage"></div>
         <div class="warning" id="braveBrowserMessage"></div>
         <div class="error" id="speechRecognitionErrorMessage"></div>
@@ -75,7 +74,9 @@ export function renderSpeechRecognitionTester(rootElement) {
   `;
 
   const toggleListeningButton = rootElement.querySelector('#toggleListeningButton');
-  const listeningStatusValue = rootElement.querySelector('#listeningStatusValue');
+  const toggleListeningButtonLabel = rootElement.querySelector('#toggleListeningButtonLabel');
+  const statusRow = rootElement.querySelector('.status-row');
+  const listenIcon = rootElement.querySelector('.listen-icon');
   const unsupportedBrowserMessage = rootElement.querySelector('#unsupportedBrowserMessage');
   const braveBrowserMessage = rootElement.querySelector('#braveBrowserMessage');
   const speechRecognitionErrorMessage = rootElement.querySelector('#speechRecognitionErrorMessage');
@@ -122,14 +123,15 @@ export function renderSpeechRecognitionTester(rootElement) {
     };
     const isListening = speechRecognitionSnapshot.listeningStatus === 'listening' || speechRecognitionSnapshot.listeningStatus === 'starting';
     latestListeningStatus = speechRecognitionSnapshot.listeningStatus;
-    toggleListeningButton.textContent = isListening ? 'Stop listening' : 'Start listening';
+    setTextContentIfChanged(toggleListeningButtonLabel, isListening ? 'Stop' : 'Start');
+    setTextContentIfChanged(listenIcon, isListening ? '■' : '▶');
     toggleListeningButton.classList.toggle('is-listening', isListening);
-    setTextContentIfChanged(listeningStatusValue, `Status: ${speechRecognitionSnapshot.listeningStatus}`);
     setTextContentIfChanged(unsupportedBrowserMessage, speechRecognitionSnapshot.isSupported ? '' : 'This browser does not support the Web Speech API.');
     setTextContentIfChanged(braveBrowserMessage, navigator.brave ? 'Brave may block or break Web Speech API transcription. Use Google Chrome for this MVP.' : '');
     setTextContentIfChanged(speechRecognitionErrorMessage, speechRecognitionSnapshot.speechRecognitionError
       ? speechRecognitionErrorMessages[speechRecognitionSnapshot.speechRecognitionError] || `Speech recognition error: ${speechRecognitionSnapshot.speechRecognitionError}`
       : '');
+    statusRow.hidden = !unsupportedBrowserMessage.textContent && !braveBrowserMessage.textContent && !speechRecognitionErrorMessage.textContent;
     microphoneLevelBar.style.width = `${speechRecognitionSnapshot.microphoneLevel}%`;
 
     if (isSelectingRhymeText) {
