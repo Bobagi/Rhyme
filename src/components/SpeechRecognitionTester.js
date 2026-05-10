@@ -79,7 +79,18 @@ export function renderSpeechRecognitionTester(rootElement) {
           <p class="transcript" id="interimTranscriptValue">-</p>
         </section>
         <section class="panel large selectable-panel" id="rhymePanel">
-          <strong class="panel-title">Rhymes for the last phrase</strong>
+          <div class="panel-title">
+            <strong>Rhymes for the last phrase</strong>
+            <label class="language-filter">
+              <span>Language</span>
+              <select id="rhymeLanguageFilter">
+                <option value="all">All</option>
+                <option value="pt">Português</option>
+                <option value="en">English</option>
+                <option value="es">Español</option>
+              </select>
+            </label>
+          </div>
           <p class="transcript" id="lastRecognizedPhraseValue">-</p>
           <ul id="rhymeSuggestionsList"></ul>
         </section>
@@ -102,6 +113,7 @@ export function renderSpeechRecognitionTester(rootElement) {
   const finalTranscriptHistory = rootElement.querySelector('#finalTranscriptHistory');
   const lastRecognizedPhraseValue = rootElement.querySelector('#lastRecognizedPhraseValue');
   const rhymeSuggestionsList = rootElement.querySelector('#rhymeSuggestionsList');
+  const rhymeLanguageFilter = rootElement.querySelector('#rhymeLanguageFilter');
   const microphoneLevelBar = rootElement.querySelector('#microphoneLevelBar');
   const microphoneLabelValue = rootElement.querySelector('#microphoneLabelValue');
   const rhymePanel = rootElement.querySelector('#rhymePanel');
@@ -130,6 +142,10 @@ export function renderSpeechRecognitionTester(rootElement) {
   rhymePanel.addEventListener('pointerdown', startRhymeSelection);
   document.addEventListener('selectionchange', updateRhymeSelectionState);
   document.addEventListener('pointerup', finishRhymeSelection);
+
+  rhymeLanguageFilter.addEventListener('change', () => {
+    speechRecognitionController.setRhymeLanguageFilter(rhymeLanguageFilter.value);
+  });
 
   toggleListeningButton.addEventListener('click', () => {
     if (latestListeningStatus === 'listening' || latestListeningStatus === 'starting') {
@@ -165,6 +181,9 @@ export function renderSpeechRecognitionTester(rootElement) {
     setTextContentIfChanged(interimTranscriptValue, speechRecognitionSnapshot.interimTranscript || '-');
     setTextContentIfChanged(lastRecognizedPhraseValue, speechRecognitionSnapshot.lastRecognizedPhrase || '-');
     renderListItemsIfChanged(rhymeSuggestionsList, speechRecognitionSnapshot.rhymeSuggestions);
+    if (rhymeLanguageFilter.value !== speechRecognitionSnapshot.rhymeLanguageFilter) {
+      rhymeLanguageFilter.value = speechRecognitionSnapshot.rhymeLanguageFilter;
+    }
     renderListItemsIfChanged(finalTranscriptHistory, speechRecognitionSnapshot.finalTranscriptSegments);
   });
 

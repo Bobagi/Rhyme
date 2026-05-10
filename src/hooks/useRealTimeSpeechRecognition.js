@@ -1,12 +1,12 @@
 import { defaultSpeechLanguage } from '../config/speechLanguages.js';
 import { BrowserSpeechRecognitionService } from '../services/browserSpeechRecognitionService.js';
 
-const remoteRhymeWordListUrls = [
-  'https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2016/pt_br/pt_br_50k.txt',
-  'https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2018/en/en_50k.txt',
-  'https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2016/es/es_50k.txt',
-];
-let remoteRhymeWordCatalogPromise = null;
+const remoteRhymeWordListSources = {
+  pt: 'https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2016/pt_br/pt_br_50k.txt',
+  en: 'https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2018/en/en_50k.txt',
+  es: 'https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2016/es/es_50k.txt',
+};
+let remoteRhymeWordCatalogsPromise = null;
 
 const rhymeSuggestionCatalog = [
   'coração',
@@ -234,20 +234,36 @@ function parseRemoteRhymeWordList(remoteRhymeWordListText) {
     .filter(isValidRemoteRhymeWord);
 }
 
-function getRemoteRhymeWordCatalog() {
-  if (!remoteRhymeWordCatalogPromise) {
-    remoteRhymeWordCatalogPromise = Promise.all(remoteRhymeWordListUrls.map((remoteRhymeWordListUrl) => fetch(remoteRhymeWordListUrl)
+function getRemoteRhymeWordCatalogs() {
+  if (!remoteRhymeWordCatalogsPromise) {
+    remoteRhymeWordCatalogsPromise = Promise.all(Object.entries(remoteRhymeWordListSources).map(([languageFilter, remoteRhymeWordListUrl]) => fetch(remoteRhymeWordListUrl)
       .then((remoteRhymeWordListResponse) => remoteRhymeWordListResponse.text())
-      .then(parseRemoteRhymeWordList)))
-      .then((remoteRhymeWordCatalogs) => remoteRhymeWordCatalogs.flat());
+      .then(parseRemoteRhymeWordList)
+      .then((remoteRhymeWordCatalog) => [languageFilter, remoteRhymeWordCatalog])))
+      .then((remoteRhymeWordCatalogEntries) => Object.fromEntries(remoteRhymeWordCatalogEntries));
   }
 
-  return remoteRhymeWordCatalogPromise;
+  return remoteRhymeWordCatalogsPromise;
 }
 
-async function getRhymeSuggestionsForTranscript(transcript) {
-  const remoteRhymeWordCatalog = await getRemoteRhymeWordCatalog();
-  return getRhymeSuggestionsFromCatalog(transcript, [...remoteRhymeWordCatalog, ...rhymeSuggestionCatalog]);
+function getLocalRhymeWordCatalog(languageFilter) {
+  return languageFilter === 'all' || languageFilter === 'pt' ? rhymeSuggestionCatalog : [];
+}
+
+function getCombinedRemoteRhymeWordCatalog(remoteRhymeWordCatalogs, languageFilter) {
+  if (languageFilter === 'all') {
+    return Object.values(remoteRhymeWordCatalogs).flat();
+  }
+
+  return remoteRhymeWordCatalogs[languageFilter] || [];
+}
+
+async function getRhymeSuggestionsForTranscript(transcript, languageFilter) {
+  const remoteRhymeWordCatalogs = await getRemoteRhymeWordCatalogs();
+  return getRhymeSuggestionsFromCatalog(transcript, [
+    ...getCombinedRemoteRhymeWordCatalog(remoteRhymeWordCatalogs, languageFilter),
+    ...getLocalRhymeWordCatalog(languageFilter),
+  ]);
 }
 
 export function useRealTimeSpeechRecognition() {
@@ -262,7 +278,25 @@ export function useRealTimeSpeechRecognition() {
     microphoneLabel: 'No microphone active',
     isSupported: true,
     shouldKeepListening: false,
+    rhymeLanguageFilter: 'all',
   };
+
+  function updateRhymeSuggestionsForPhrase(latestFinalTranscriptSegment) {
+    const requestedRhymeLanguageFilter = recognitionState.rhymeLanguageFilter;
+    recognitionState.rhymeSuggestions = getRhymeSuggestionsFromCatalog(
+      latestFinalTranscriptSegment,
+      getLocalRhymeWordCatalog(requestedRhymeLanguageFilter),
+      true,
+    );
+    getRhymeSuggestionsForTranscript(latestFinalTranscriptSegment, requestedRhymeLanguageFilter)
+      .then((rhymeSuggestions) => {
+        if (recognitionState.lastRecognizedPhrase === latestFinalTranscriptSegment && recognitionState.rhymeLanguageFilter === requestedRhymeLanguageFilter) {
+          recognitionState.rhymeSuggestions = rhymeSuggestions;
+          updateInterface();
+        }
+      })
+      .catch(() => {});
+  }
 
   const speechRecognitionService = new BrowserSpeechRecognitionService(defaultSpeechLanguage, {
     onUnsupported: () => {
@@ -313,15 +347,7 @@ export function useRealTimeSpeechRecognition() {
       recognitionState.interimTranscript = activeInterimTranscript;
       if (latestFinalTranscriptSegment) {
         recognitionState.lastRecognizedPhrase = latestFinalTranscriptSegment;
-        recognitionState.rhymeSuggestions = getRhymeSuggestionsFromCatalog(latestFinalTranscriptSegment, rhymeSuggestionCatalog, true);
-        getRhymeSuggestionsForTranscript(latestFinalTranscriptSegment)
-          .then((rhymeSuggestions) => {
-            if (recognitionState.lastRecognizedPhrase === latestFinalTranscriptSegment) {
-              recognitionState.rhymeSuggestions = rhymeSuggestions;
-              updateInterface();
-            }
-          })
-          .catch(() => {});
+        updateRhymeSuggestionsForPhrase(latestFinalTranscriptSegment);
       }
       updateInterface();
     },
@@ -386,6 +412,18 @@ export function useRealTimeSpeechRecognition() {
     }
   }
 
+  function setRhymeLanguageFilter(nextRhymeLanguageFilter) {
+    if (!['all', 'pt', 'en', 'es'].includes(nextRhymeLanguageFilter) || recognitionState.rhymeLanguageFilter === nextRhymeLanguageFilter) {
+      return;
+    }
+
+    recognitionState.rhymeLanguageFilter = nextRhymeLanguageFilter;
+    if (recognitionState.lastRecognizedPhrase) {
+      updateRhymeSuggestionsForPhrase(recognitionState.lastRecognizedPhrase);
+    }
+    updateInterface();
+  }
+
   function stopListening() {
     if (!recognitionState.shouldKeepListening) {
       return;
@@ -426,5 +464,5 @@ export function useRealTimeSpeechRecognition() {
     listeners.clear();
   }
 
-  return { subscribe, startListening, stopListening, dispose };
+  return { subscribe, startListening, stopListening, setRhymeLanguageFilter, dispose };
 }
