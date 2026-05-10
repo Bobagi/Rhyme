@@ -111,8 +111,11 @@
       .listen-button.is-listening { color: white; background: linear-gradient(135deg, var(--red), var(--red-dark)); box-shadow: 0 14px 30px rgba(255, 77, 79, 0.24); }
       .listen-icon { font-size: 0.9rem; line-height: 1; }
       .microphone-label {
+        min-height: 50px;
         max-width: min(420px, 100%);
-        padding: 9px 12px;
+        display: inline-flex;
+        align-items: center;
+        padding: 14px 20px;
         overflow: hidden;
         border: 1px solid var(--border);
         border-radius: 999px;
@@ -134,7 +137,7 @@
       }
 
       .warning, .error { line-height: 1.45; }
-      .warning { color: #ffd166; }
+      .warning { color: #ff8787; font-weight: 800; }
       .error { color: #ff8787; }
 
       .grid {

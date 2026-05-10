@@ -21,6 +21,19 @@ function renderListItemsIfChanged(listElement, nextItems) {
   });
 }
 
+
+async function getBrowserSelectedMicrophoneLabel() {
+  if (!navigator.mediaDevices?.enumerateDevices) {
+    return 'Mic: Browser default microphone';
+  }
+
+  const mediaDevices = await navigator.mediaDevices.enumerateDevices();
+  const selectedMicrophone = mediaDevices.find((mediaDevice) => mediaDevice.kind === 'audioinput' && mediaDevice.deviceId === 'default')
+    || mediaDevices.find((mediaDevice) => mediaDevice.kind === 'audioinput');
+
+  return `Mic: ${selectedMicrophone?.label || 'Browser default microphone'}`;
+}
+
 function selectionIntersectsElement(element) {
   const currentSelection = window.getSelection();
   if (!currentSelection || currentSelection.rangeCount === 0 || currentSelection.isCollapsed) {
@@ -91,6 +104,10 @@ export function renderSpeechRecognitionTester(rootElement) {
   let isSelectingRhymeText = false;
   let latestListeningStatus = 'idle';
 
+  getBrowserSelectedMicrophoneLabel()
+    .then((browserSelectedMicrophoneLabel) => setTextContentIfChanged(microphoneLabelValue, browserSelectedMicrophoneLabel))
+    .catch(() => setTextContentIfChanged(microphoneLabelValue, 'Mic: Browser default microphone'));
+
   const updateRhymeSelectionState = () => {
     isSelectingRhymeText = isPointerSelectingRhymeText || selectionIntersectsElement(rhymePanel);
   };
@@ -128,7 +145,7 @@ export function renderSpeechRecognitionTester(rootElement) {
     setTextContentIfChanged(listenIcon, isListening ? '■' : '🎙');
     toggleListeningButton.classList.toggle('is-listening', isListening);
     setTextContentIfChanged(unsupportedBrowserMessage, speechRecognitionSnapshot.isSupported ? '' : 'This browser does not support the Web Speech API.');
-    setTextContentIfChanged(braveBrowserMessage, navigator.brave ? 'Brave may block or break Web Speech API transcription. Use Google Chrome for this MVP.' : '');
+    setTextContentIfChanged(braveBrowserMessage, 'Speech recognition may be unstable depending on the browser. Use Google Chrome for the best experience.');
     setTextContentIfChanged(speechRecognitionErrorMessage, speechRecognitionSnapshot.speechRecognitionError
       ? speechRecognitionErrorMessages[speechRecognitionSnapshot.speechRecognitionError] || `Speech recognition error: ${speechRecognitionSnapshot.speechRecognitionError}`
       : '');

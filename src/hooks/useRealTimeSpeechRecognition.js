@@ -395,7 +395,6 @@ export function useRealTimeSpeechRecognition() {
     recognitionState.listeningStatus = 'stopped';
     recognitionState.interimTranscript = '';
     recognitionState.microphoneLevel = 0;
-    recognitionState.microphoneLabel = 'No microphone active';
     if (microphoneLevelAnimationFrame) {
       window.cancelAnimationFrame(microphoneLevelAnimationFrame);
       microphoneLevelAnimationFrame = 0;
