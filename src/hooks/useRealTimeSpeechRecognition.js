@@ -259,6 +259,7 @@ export function useRealTimeSpeechRecognition() {
     lastRecognizedPhrase: '',
     speechRecognitionError: '',
     microphoneLevel: 0,
+    microphoneLabel: 'No microphone active',
     isSupported: true,
     shouldKeepListening: false,
   };
@@ -349,9 +350,12 @@ export function useRealTimeSpeechRecognition() {
     recognitionState.speechRecognitionError = '';
     recognitionState.shouldKeepListening = true;
     recognitionState.listeningStatus = 'starting';
+    recognitionState.microphoneLabel = 'Requesting microphone...';
     updateInterface();
     try {
       microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      recognitionState.microphoneLabel = microphoneStream.getAudioTracks()[0]?.label || 'Default microphone';
+      updateInterface();
       microphoneAudioContext = new window.AudioContext();
       const microphoneSource = microphoneAudioContext.createMediaStreamSource(microphoneStream);
       microphoneAnalyser = microphoneAudioContext.createAnalyser();
@@ -377,6 +381,7 @@ export function useRealTimeSpeechRecognition() {
       recognitionState.speechRecognitionError = (caughtError && caughtError.name) || 'microphone-access-failed';
       recognitionState.shouldKeepListening = false;
       recognitionState.listeningStatus = 'stopped';
+      recognitionState.microphoneLabel = 'No microphone active';
       updateInterface();
     }
   }
@@ -390,6 +395,7 @@ export function useRealTimeSpeechRecognition() {
     recognitionState.listeningStatus = 'stopped';
     recognitionState.interimTranscript = '';
     recognitionState.microphoneLevel = 0;
+    recognitionState.microphoneLabel = 'No microphone active';
     if (microphoneLevelAnimationFrame) {
       window.cancelAnimationFrame(microphoneLevelAnimationFrame);
       microphoneLevelAnimationFrame = 0;

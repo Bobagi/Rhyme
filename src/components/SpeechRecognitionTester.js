@@ -41,7 +41,7 @@ export function renderSpeechRecognitionTester(rootElement) {
           <p class="eyebrow">Live rhyme studio</p>
           <h1>Rhyme <span>Trainer</span></h1>
           <p class="intro">Capture seu freestyle em tempo real, veja a última frase e selecione qualquer rima sem precisar parar o microfone.</p>
-          <button class="listen-button" id="toggleListeningButton" type="button"><span class="listen-icon">🎙</span><span id="toggleListeningButtonLabel">Start listening</span></button>
+          <div class="listen-controls"><button class="listen-button" id="toggleListeningButton" type="button"><span class="listen-icon">🎙</span><span id="toggleListeningButtonLabel">Start listening</span></button><span class="microphone-label" id="microphoneLabelValue">Mic: No microphone active</span></div>
         </div>
       </header>
       <section class="status-row" hidden>
@@ -85,6 +85,7 @@ export function renderSpeechRecognitionTester(rootElement) {
   const lastRecognizedPhraseValue = rootElement.querySelector('#lastRecognizedPhraseValue');
   const rhymeSuggestionsList = rootElement.querySelector('#rhymeSuggestionsList');
   const microphoneLevelBar = rootElement.querySelector('#microphoneLevelBar');
+  const microphoneLabelValue = rootElement.querySelector('#microphoneLabelValue');
   const rhymePanel = rootElement.querySelector('#rhymePanel');
   let isPointerSelectingRhymeText = false;
   let isSelectingRhymeText = false;
@@ -133,6 +134,7 @@ export function renderSpeechRecognitionTester(rootElement) {
       : '');
     statusRow.hidden = !unsupportedBrowserMessage.textContent && !braveBrowserMessage.textContent && !speechRecognitionErrorMessage.textContent;
     microphoneLevelBar.style.width = `${speechRecognitionSnapshot.microphoneLevel}%`;
+    setTextContentIfChanged(microphoneLabelValue, `Mic: ${speechRecognitionSnapshot.microphoneLabel || 'No microphone active'}`);
 
     if (isSelectingRhymeText) {
       return;
