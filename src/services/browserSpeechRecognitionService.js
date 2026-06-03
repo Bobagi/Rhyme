@@ -2,13 +2,30 @@ const browserSpeechRecognitionConstructor = window.SpeechRecognition || window.w
 
 export class BrowserSpeechRecognitionService {
   constructor(selectedSpeechLanguage, browserSpeechRecognitionCallbacks) {
-    this.selectedSpeechLanguage = selectedSpeechLanguage;
+    this.recognitionLocale = selectedSpeechLanguage.locale;
     this.browserSpeechRecognitionCallbacks = browserSpeechRecognitionCallbacks;
     this.speechRecognitionInstance = null;
   }
 
   isSupported() {
     return Boolean(browserSpeechRecognitionConstructor);
+  }
+
+  getLocale() {
+    return this.recognitionLocale;
+  }
+
+  // Updating the locale takes effect on the next start(); callers that want it
+  // applied immediately stop() and rely on the auto-restart in onEnd.
+  setLanguage(nextRecognitionLocale) {
+    if (!nextRecognitionLocale || nextRecognitionLocale === this.recognitionLocale) {
+      return false;
+    }
+    this.recognitionLocale = nextRecognitionLocale;
+    if (this.speechRecognitionInstance) {
+      this.speechRecognitionInstance.lang = nextRecognitionLocale;
+    }
+    return true;
   }
 
   start() {
@@ -20,7 +37,6 @@ export class BrowserSpeechRecognitionService {
       this.speechRecognitionInstance = new browserSpeechRecognitionConstructor();
       this.speechRecognitionInstance.continuous = true;
       this.speechRecognitionInstance.interimResults = true;
-      this.speechRecognitionInstance.lang = this.selectedSpeechLanguage.locale;
       this.speechRecognitionInstance.onstart = () => this.browserSpeechRecognitionCallbacks.onStart();
       this.speechRecognitionInstance.onend = () => this.browserSpeechRecognitionCallbacks.onEnd();
       this.speechRecognitionInstance.onerror = (speechRecognitionError) => this.browserSpeechRecognitionCallbacks.onError(speechRecognitionError.error || 'unknown');
@@ -34,6 +50,8 @@ export class BrowserSpeechRecognitionService {
         this.browserSpeechRecognitionCallbacks.onResult(recognizedSpeechSegments);
       };
     }
+    // Always re-apply the locale so a mid-session language switch is honored on restart.
+    this.speechRecognitionInstance.lang = this.recognitionLocale;
     try {
       this.speechRecognitionInstance.start();
     } catch (caughtError) {

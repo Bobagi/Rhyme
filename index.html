@@ -296,6 +296,39 @@
       .selectable-panel, .selectable-panel * { user-select: text; }
       #finalTranscriptHistory li { border-radius: 12px; background: rgba(255, 255, 255, 0.05); }
 
+      #rhymeSuggestionsList li {
+        cursor: pointer;
+        transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+      }
+      #rhymeSuggestionsList li:hover {
+        border-color: var(--yellow);
+        background: rgba(255, 212, 59, 0.16);
+        transform: translateY(-1px);
+      }
+      #rhymeSuggestionsList li.is-copied {
+        color: #090909;
+        background: linear-gradient(135deg, var(--yellow), var(--yellow-strong));
+        border-color: var(--yellow-strong);
+      }
+      .copy-toast {
+        position: absolute;
+        right: 16px;
+        bottom: 14px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        color: #090909;
+        font-size: 0.74rem;
+        font-weight: 950;
+        background: linear-gradient(135deg, var(--yellow), var(--yellow-strong));
+        box-shadow: 0 10px 24px rgba(250, 176, 5, 0.3);
+        opacity: 0;
+        transform: translateY(6px);
+        transition: opacity 140ms ease, transform 140ms ease;
+        pointer-events: none;
+        z-index: 2;
+      }
+      .copy-toast.is-visible { opacity: 1; transform: translateY(0); }
+
       @media (max-width: 760px) {
         body { padding: 14px; }
         .container { padding: 14px; border-radius: 22px; }

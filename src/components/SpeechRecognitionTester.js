@@ -58,7 +58,7 @@ export function renderSpeechRecognitionTester(rootElement) {
         <div>
           <p class="eyebrow">Live rhyme studio</p>
           <h1>Rhyme <span>Trainer</span></h1>
-          <p class="intro">Capture seu freestyle em tempo real, veja a última frase e selecione qualquer rima sem precisar parar o microfone.</p>
+          <p class="intro">Capture seu freestyle em tempo real, veja a última frase e clique em qualquer rima para copiá-la — sem parar o microfone. Escolha a bandeira para treinar em outro idioma (muda a transcrição e as rimas).</p>
           <div class="listen-controls"><button class="listen-button" id="toggleListeningButton" type="button"><span class="listen-icon">🎙</span><span id="toggleListeningButtonLabel">Start listening</span></button><span class="microphone-label" id="microphoneLabelValue">Mic: No microphone active</span></div>
         </div>
       </header>
@@ -91,6 +91,7 @@ export function renderSpeechRecognitionTester(rootElement) {
           </div>
           <p class="transcript" id="lastRecognizedPhraseValue">-</p>
           <ul id="rhymeSuggestionsList"></ul>
+          <div class="copy-toast" id="rhymeCopyToast" role="status" aria-live="polite" hidden>Copiado!</div>
         </section>
         <section class="panel large selectable-panel">
           <strong class="panel-title">Final transcript history</strong>
@@ -115,6 +116,7 @@ export function renderSpeechRecognitionTester(rootElement) {
   const microphoneLevelBar = rootElement.querySelector('#microphoneLevelBar');
   const microphoneLabelValue = rootElement.querySelector('#microphoneLabelValue');
   const rhymePanel = rootElement.querySelector('#rhymePanel');
+  const rhymeCopyToast = rootElement.querySelector('#rhymeCopyToast');
   let isPointerSelectingRhymeText = false;
   let isSelectingRhymeText = false;
   let latestListeningStatus = 'idle';
@@ -149,6 +151,54 @@ export function renderSpeechRecognitionTester(rootElement) {
     rhymeLanguageFilterOption.addEventListener('click', () => {
       speechRecognitionController.setRhymeLanguageFilter(rhymeLanguageFilterOption.dataset.rhymeLanguageFilter);
     });
+  });
+
+  let rhymeCopyToastTimer = 0;
+  const showRhymeCopyToast = () => {
+    rhymeCopyToast.hidden = false;
+    rhymeCopyToast.classList.add('is-visible');
+    if (rhymeCopyToastTimer) {
+      window.clearTimeout(rhymeCopyToastTimer);
+    }
+    rhymeCopyToastTimer = window.setTimeout(() => {
+      rhymeCopyToast.classList.remove('is-visible');
+      rhymeCopyToast.hidden = true;
+    }, 1100);
+  };
+
+  const copyRhymeSuggestion = async (rhymeText, listItemElement) => {
+    try {
+      await navigator.clipboard.writeText(rhymeText);
+    } catch (clipboardError) {
+      // Clipboard API may be unavailable (insecure context) — fall back to execCommand.
+      const selectionRange = document.createRange();
+      selectionRange.selectNodeContents(listItemElement);
+      const activeSelection = window.getSelection();
+      activeSelection.removeAllRanges();
+      activeSelection.addRange(selectionRange);
+      try {
+        document.execCommand('copy');
+      } catch (legacyCopyError) {
+        // Nothing else to try; the user can still select manually.
+      }
+      activeSelection.removeAllRanges();
+    }
+    listItemElement.classList.add('is-copied');
+    window.setTimeout(() => listItemElement.classList.remove('is-copied'), 600);
+    showRhymeCopyToast();
+  };
+
+  rhymeSuggestionsList.addEventListener('click', (clickEvent) => {
+    const listItemElement = clickEvent.target.closest('li');
+    if (!listItemElement || !rhymeSuggestionsList.contains(listItemElement)) {
+      return;
+    }
+    // Don't hijack an intentional text selection.
+    const activeSelection = window.getSelection();
+    if (activeSelection && !activeSelection.isCollapsed && selectionIntersectsElement(listItemElement)) {
+      return;
+    }
+    copyRhymeSuggestion(listItemElement.textContent, listItemElement);
   });
 
   toggleListeningButton.addEventListener('click', () => {

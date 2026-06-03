@@ -1,270 +1,14 @@
-import { defaultSpeechLanguage } from '../config/speechLanguages.js';
+import { defaultSpeechLanguage, recognitionLocaleForRhymeFilter } from '../config/speechLanguages.js';
 import { BrowserSpeechRecognitionService } from '../services/browserSpeechRecognitionService.js';
+import {
+  suggestRhymes,
+  suggestRhymesFromCuratedCatalog,
+  ensureCatalogsLoaded,
+  getLastWord,
+} from '../services/rhymeEngine.js';
 
-const remoteRhymeWordListSources = {
-  pt: 'https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2016/pt_br/pt_br_50k.txt',
-  en: 'https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2018/en/en_50k.txt',
-  es: 'https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2016/es/es_50k.txt',
-};
-let remoteRhymeWordCatalogsPromise = null;
-
-const rhymeSuggestionCatalog = [
-  'coração',
-  'canção',
-  'emoção',
-  'paixão',
-  'razão',
-  'direção',
-  'solidão',
-  'multidão',
-  'perdão',
-  'na mesma direção',
-  'ouvindo uma canção',
-  'cheio de emoção',
-  'noite',
-  'açoite',
-  'foi-se',
-  'sorte',
-  'norte',
-  'forte',
-  'morte',
-  'porto',
-  'conforto',
-  'amor',
-  'dor',
-  'flor',
-  'calor',
-  'valor',
-  'sabor',
-  'favor',
-  'onde nasce o amor',
-  'com todo meu valor',
-  'mar',
-  'rir',
-  'sorrir',
-  'partir',
-  'dormir',
-  'abrir',
-  'sentir',
-  'fugir',
-  'olhar',
-  'cantar',
-  'sonhar',
-  'voar',
-  'ficar',
-  'andar',
-  'sem parar',
-  'pronto para sonhar',
-  'canja',
-  'ranja',
-  'banja',
-  'briolanja',
-  'calanja',
-  'marmanja',
-  'constranja',
-  'laranja',
-  'granja',
-  'franja',
-  'anja',
-  'arranja',
-  'baixo',
-  'cacho',
-  'facho',
-  'acho',
-  'despacho',
-  'vida',
-  'dia',
-  'guia',
-  'alegria',
-  'poesia',
-  'melodia',
-  'harmonia',
-  'fantasia',
-  'energia',
-  'ferida',
-  'partida',
-  'saída',
-  'avenida',
-  'querida',
-  'minha querida',
-  'estrada da vida',
-  'casa',
-  'asa',
-  'brasa',
-  'arrasa',
-  'praça',
-  'graça',
-  'massa',
-  'passa',
-  'tempo',
-  'contratempo',
-  'vento',
-  'momento',
-  'sentimento',
-  'pensamento',
-  'talento',
-  'luz',
-  'conduz',
-  'produz',
-  'traduz',
-  'feliz',
-  'raiz',
-  'juiz',
-  'matriz',
-  'país',
-  'teste',
-  'agreste',
-  'veste',
-  'oeste',
-  'hoje',
-  'foge',
-  'longe',
-  'liberdade',
-  'saudade',
-  'verdade',
-  'cidade',
-  'vontade',
-  'beleza',
-  'certeza',
-  'natureza',
-  'tristeza',
-  'pureza',
-  'gente',
-  'frente',
-  'mente',
-  'presente',
-  'semente',
-  'diferente',
-  'antes',
-  'instantes',
-  'gigantes',
-  'distantes',
-  'mundo',
-  'profundo',
-  'segundo',
-  'vagabundo',
-  'tudo',
-  'escudo',
-  'conteúdo',
-  'mudo',
-  'medo',
-  'segredo',
-  'brinquedo',
-  'cedo',
-  'céu',
-  'véu',
-  'papel',
-  'anel',
-  'mel',
-  'final',
-  'sinal',
-  'jornal',
-  'normal',
-  'também',
-  'além',
-  'ninguém',
-  'refém',
-  'enfim',
-  'jardim',
-  'assim',
-  'mim',
-  'atum',
-  'jejum',
-  'comum',
-  'nenhum',
-];
-
-function normalizeRhymeText(textToNormalize) {
-  return textToNormalize
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^a-z0-9\s]/g, '')
-    .trim();
-}
-
-function getRhymeEndings(wordToMatch, shouldIncludeLooseEnding = false) {
-  const normalizedWord = normalizeRhymeText(wordToMatch);
-  const rhymeEndings = [normalizedWord.slice(-4), normalizedWord.slice(-3)];
-
-  if (shouldIncludeLooseEnding) {
-    rhymeEndings.push(normalizedWord.slice(-2));
-  }
-
-  return rhymeEndings
-    .filter((rhymeEnding, rhymeEndingIndex) => rhymeEnding && rhymeEndings.indexOf(rhymeEnding) === rhymeEndingIndex);
-}
-
-function isValidRhymeWord(rhymeWord) {
-  const normalizedRhymeWord = normalizeRhymeText(rhymeWord);
-
-  return rhymeWord === rhymeWord.toLowerCase() && normalizedRhymeWord.length > 2 && /^[a-z]+$/.test(normalizedRhymeWord) && !/[\s-]/.test(rhymeWord);
-}
-
-function getRhymeSuggestionsFromCatalog(transcript, rhymeWordCatalog, shouldIncludeLooseEnding = false) {
-  const spokenWords = normalizeRhymeText(transcript).split(/\s+/).filter(Boolean);
-  const lastSpokenWord = spokenWords.at(-1) || '';
-  const rhymeEndings = getRhymeEndings(lastSpokenWord, shouldIncludeLooseEnding);
-  const rhymeSuggestions = [];
-
-  rhymeEndings.forEach((rhymeEnding) => {
-    rhymeWordCatalog.forEach((rhymeSuggestion) => {
-      if (!isValidRhymeWord(rhymeSuggestion)) {
-        return;
-      }
-      const normalizedSuggestion = normalizeRhymeText(rhymeSuggestion);
-      const suggestionLastWord = normalizedSuggestion.split(/\s+/).at(-1) || '';
-      if (suggestionLastWord !== lastSpokenWord && suggestionLastWord.endsWith(rhymeEnding) && !rhymeSuggestions.includes(rhymeSuggestion)) {
-        rhymeSuggestions.push(rhymeSuggestion);
-      }
-    });
-  });
-
-  return rhymeSuggestions;
-}
-
-function isValidRemoteRhymeWord(remoteRhymeWord) {
-  return isValidRhymeWord(remoteRhymeWord);
-}
-
-function parseRemoteRhymeWordList(remoteRhymeWordListText) {
-  return remoteRhymeWordListText
-    .split(/\r?\n/)
-    .map((remoteRhymeWordListLine) => remoteRhymeWordListLine.trim().split(/\s+/)[0])
-    .filter(isValidRemoteRhymeWord);
-}
-
-function getRemoteRhymeWordCatalogs() {
-  if (!remoteRhymeWordCatalogsPromise) {
-    remoteRhymeWordCatalogsPromise = Promise.all(Object.entries(remoteRhymeWordListSources).map(([languageFilter, remoteRhymeWordListUrl]) => fetch(remoteRhymeWordListUrl)
-      .then((remoteRhymeWordListResponse) => remoteRhymeWordListResponse.text())
-      .then(parseRemoteRhymeWordList)
-      .then((remoteRhymeWordCatalog) => [languageFilter, remoteRhymeWordCatalog])))
-      .then((remoteRhymeWordCatalogEntries) => Object.fromEntries(remoteRhymeWordCatalogEntries));
-  }
-
-  return remoteRhymeWordCatalogsPromise;
-}
-
-function getLocalRhymeWordCatalog(languageFilter) {
-  return languageFilter === 'all' || languageFilter === 'pt' ? rhymeSuggestionCatalog : [];
-}
-
-function getCombinedRemoteRhymeWordCatalog(remoteRhymeWordCatalogs, languageFilter) {
-  if (languageFilter === 'all') {
-    return Object.values(remoteRhymeWordCatalogs).flat();
-  }
-
-  return remoteRhymeWordCatalogs[languageFilter] || [];
-}
-
-async function getRhymeSuggestionsForTranscript(transcript, languageFilter) {
-  const remoteRhymeWordCatalogs = await getRemoteRhymeWordCatalogs();
-  return getRhymeSuggestionsFromCatalog(transcript, [
-    ...getCombinedRemoteRhymeWordCatalog(remoteRhymeWordCatalogs, languageFilter),
-    ...getLocalRhymeWordCatalog(languageFilter),
-  ]);
-}
+const INTERIM_RHYME_DEBOUNCE_MS = 220;
+const MAX_RESTART_BACKOFF_MS = 4000;
 
 export function useRealTimeSpeechRecognition() {
   const recognitionState = {
@@ -281,21 +25,60 @@ export function useRealTimeSpeechRecognition() {
     rhymeLanguageFilter: 'all',
   };
 
-  function updateRhymeSuggestionsForPhrase(latestFinalTranscriptSegment) {
-    const requestedRhymeLanguageFilter = recognitionState.rhymeLanguageFilter;
-    recognitionState.rhymeSuggestions = getRhymeSuggestionsFromCatalog(
-      latestFinalTranscriptSegment,
-      getLocalRhymeWordCatalog(requestedRhymeLanguageFilter),
-      true,
-    );
-    getRhymeSuggestionsForTranscript(latestFinalTranscriptSegment, requestedRhymeLanguageFilter)
+  const listeners = new Set();
+  let microphoneAudioContext = null;
+  let microphoneAnalyser = null;
+  let microphoneStream = null;
+  let microphoneLevelAnimationFrame = 0;
+
+  let lastRhymedWord = '';
+  let interimRhymeDebounceTimer = 0;
+  let restartBackoffTimer = 0;
+  let consecutiveRestartCount = 0;
+  let pendingRhymeRequestToken = 0;
+
+  function updateInterface() {
+    listeners.forEach((listenerCallback) => listenerCallback({ ...recognitionState }));
+  }
+
+  // Resolves the requested rhymes asynchronously and only applies them if the
+  // source phrase and language filter are still the latest the user cares about.
+  function refreshRhymeSuggestions(sourcePhrase, { forceRecompute = false } = {}) {
+    const spokenWord = getLastWord(sourcePhrase);
+    if (!spokenWord) {
+      return;
+    }
+    if (!forceRecompute && spokenWord === lastRhymedWord) {
+      return;
+    }
+    lastRhymedWord = spokenWord;
+
+    const requestedLanguageFilter = recognitionState.rhymeLanguageFilter;
+    const requestToken = (pendingRhymeRequestToken += 1);
+
+    // Instant curated results so the panel never feels frozen while lists load.
+    recognitionState.rhymeSuggestions = suggestRhymesFromCuratedCatalog(sourcePhrase, requestedLanguageFilter);
+    updateInterface();
+
+    suggestRhymes(sourcePhrase, requestedLanguageFilter)
       .then((rhymeSuggestions) => {
-        if (recognitionState.lastRecognizedPhrase === latestFinalTranscriptSegment && recognitionState.rhymeLanguageFilter === requestedRhymeLanguageFilter) {
-          recognitionState.rhymeSuggestions = rhymeSuggestions;
-          updateInterface();
+        if (requestToken !== pendingRhymeRequestToken || requestedLanguageFilter !== recognitionState.rhymeLanguageFilter) {
+          return;
         }
+        recognitionState.rhymeSuggestions = rhymeSuggestions;
+        updateInterface();
       })
       .catch(() => {});
+  }
+
+  function scheduleInterimRhymeRefresh(interimPhrase) {
+    if (interimRhymeDebounceTimer) {
+      window.clearTimeout(interimRhymeDebounceTimer);
+    }
+    interimRhymeDebounceTimer = window.setTimeout(() => {
+      interimRhymeDebounceTimer = 0;
+      refreshRhymeSuggestions(interimPhrase);
+    }, INTERIM_RHYME_DEBOUNCE_MS);
   }
 
   const speechRecognitionService = new BrowserSpeechRecognitionService(defaultSpeechLanguage, {
@@ -305,18 +88,34 @@ export function useRealTimeSpeechRecognition() {
       updateInterface();
     },
     onStart: () => {
+      consecutiveRestartCount = 0;
       recognitionState.listeningStatus = 'listening';
       recognitionState.speechRecognitionError = '';
       updateInterface();
     },
     onEnd: () => {
       if (recognitionState.shouldKeepListening) {
-        try {
-          speechRecognitionService.start();
-          return;
-        } catch (caughtError) {
-          recognitionState.speechRecognitionError = (caughtError && caughtError.message) || 'Failed to restart recognition.';
+        // Chrome ends recognition on silence/timeouts; restart with a small
+        // backoff so transient (e.g. network) errors don't spin a tight loop.
+        const restartDelayMs = Math.min(consecutiveRestartCount * 300, MAX_RESTART_BACKOFF_MS);
+        consecutiveRestartCount += 1;
+        if (restartBackoffTimer) {
+          window.clearTimeout(restartBackoffTimer);
         }
+        restartBackoffTimer = window.setTimeout(() => {
+          restartBackoffTimer = 0;
+          if (!recognitionState.shouldKeepListening) {
+            return;
+          }
+          try {
+            speechRecognitionService.start();
+          } catch (caughtError) {
+            recognitionState.speechRecognitionError = (caughtError && caughtError.message) || 'Failed to restart recognition.';
+            recognitionState.listeningStatus = 'stopped';
+            updateInterface();
+          }
+        }, restartDelayMs);
+        return;
       }
       recognitionState.listeningStatus = 'stopped';
       recognitionState.interimTranscript = '';
@@ -324,7 +123,9 @@ export function useRealTimeSpeechRecognition() {
     },
     onError: (speechRecognitionErrorCode) => {
       recognitionState.speechRecognitionError = speechRecognitionErrorCode;
-      if (speechRecognitionErrorCode === 'not-allowed') {
+      // 'no-speech' / 'network' are recoverable — keep listening and let onEnd
+      // restart. Permission errors are terminal.
+      if (speechRecognitionErrorCode === 'not-allowed' || speechRecognitionErrorCode === 'service-not-allowed') {
         recognitionState.shouldKeepListening = false;
         recognitionState.listeningStatus = 'stopped';
       }
@@ -345,23 +146,23 @@ export function useRealTimeSpeechRecognition() {
         }
       });
       recognitionState.interimTranscript = activeInterimTranscript;
+
       if (latestFinalTranscriptSegment) {
+        // A finalized phrase wins: rhyme on it immediately and cancel any pending interim refresh.
+        if (interimRhymeDebounceTimer) {
+          window.clearTimeout(interimRhymeDebounceTimer);
+          interimRhymeDebounceTimer = 0;
+        }
         recognitionState.lastRecognizedPhrase = latestFinalTranscriptSegment;
-        updateRhymeSuggestionsForPhrase(latestFinalTranscriptSegment);
+        refreshRhymeSuggestions(latestFinalTranscriptSegment, { forceRecompute: true });
+      } else if (activeInterimTranscript) {
+        // Live rhymes as you speak — update only when the trailing word changes.
+        recognitionState.lastRecognizedPhrase = activeInterimTranscript;
+        scheduleInterimRhymeRefresh(activeInterimTranscript);
       }
       updateInterface();
     },
   });
-
-  const listeners = new Set();
-  let microphoneAudioContext = null;
-  let microphoneAnalyser = null;
-  let microphoneStream = null;
-  let microphoneLevelAnimationFrame = 0;
-
-  function updateInterface() {
-    listeners.forEach((listenerCallback) => listenerCallback({ ...recognitionState }));
-  }
 
   async function startListening() {
     if (!speechRecognitionService.isSupported()) {
@@ -377,12 +178,17 @@ export function useRealTimeSpeechRecognition() {
     recognitionState.shouldKeepListening = true;
     recognitionState.listeningStatus = 'starting';
     recognitionState.microphoneLabel = 'Requesting microphone...';
+    consecutiveRestartCount = 0;
+    ensureCatalogsLoaded(recognitionState.rhymeLanguageFilter);
     updateInterface();
     try {
       microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
       recognitionState.microphoneLabel = microphoneStream.getAudioTracks()[0]?.label || 'Default microphone';
       updateInterface();
       microphoneAudioContext = new window.AudioContext();
+      if (microphoneAudioContext.state === 'suspended') {
+        microphoneAudioContext.resume().catch(() => {});
+      }
       const microphoneSource = microphoneAudioContext.createMediaStreamSource(microphoneStream);
       microphoneAnalyser = microphoneAudioContext.createAnalyser();
       microphoneAnalyser.fftSize = 512;
@@ -397,8 +203,12 @@ export function useRealTimeSpeechRecognition() {
         for (let microphoneDataIndex = 0; microphoneDataIndex < microphoneDataArray.length; microphoneDataIndex += 1) {
           totalAmplitude += Math.abs(microphoneDataArray[microphoneDataIndex] - 128);
         }
-        recognitionState.microphoneLevel = Math.min(100, Math.round((totalAmplitude / microphoneDataArray.length) * 2));
-        updateInterface();
+        const nextMicrophoneLevel = Math.min(100, Math.round((totalAmplitude / microphoneDataArray.length) * 2));
+        // Only re-render when the level visibly changes to avoid a 60fps render storm.
+        if (nextMicrophoneLevel !== recognitionState.microphoneLevel) {
+          recognitionState.microphoneLevel = nextMicrophoneLevel;
+          updateInterface();
+        }
         microphoneLevelAnimationFrame = window.requestAnimationFrame(updateMicrophoneLevel);
       };
       updateMicrophoneLevel();
@@ -418,8 +228,17 @@ export function useRealTimeSpeechRecognition() {
     }
 
     recognitionState.rhymeLanguageFilter = nextRhymeLanguageFilter;
+    ensureCatalogsLoaded(nextRhymeLanguageFilter);
+
+    // Switching to a specific language also switches what the microphone transcribes.
+    const nextRecognitionLocale = recognitionLocaleForRhymeFilter(nextRhymeLanguageFilter);
+    if (nextRecognitionLocale && speechRecognitionService.setLanguage(nextRecognitionLocale) && recognitionState.shouldKeepListening) {
+      // stop() triggers onEnd, which restarts recognition in the new locale.
+      speechRecognitionService.stop();
+    }
+
     if (recognitionState.lastRecognizedPhrase) {
-      updateRhymeSuggestionsForPhrase(recognitionState.lastRecognizedPhrase);
+      refreshRhymeSuggestions(recognitionState.lastRecognizedPhrase, { forceRecompute: true });
     }
     updateInterface();
   }
@@ -429,6 +248,10 @@ export function useRealTimeSpeechRecognition() {
       return;
     }
     recognitionState.shouldKeepListening = false;
+    if (restartBackoffTimer) {
+      window.clearTimeout(restartBackoffTimer);
+      restartBackoffTimer = 0;
+    }
     speechRecognitionService.stop();
     recognitionState.listeningStatus = 'stopped';
     recognitionState.interimTranscript = '';
@@ -460,6 +283,10 @@ export function useRealTimeSpeechRecognition() {
 
   function dispose() {
     stopListening();
+    if (interimRhymeDebounceTimer) {
+      window.clearTimeout(interimRhymeDebounceTimer);
+      interimRhymeDebounceTimer = 0;
+    }
     speechRecognitionService.destroy();
     listeners.clear();
   }
