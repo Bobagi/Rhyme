@@ -148,6 +148,40 @@ export function computeRhymeKey(rawWord, language = 'pt') {
   return perfectKey;
 }
 
+// The tonic vowel skeleton: the vowels from the stressed vowel onward,
+// accent-folded ("fácil" -> "ai", "rápido" -> "aio"). Two words sharing it are
+// assonant ("toante") rhymes — the backbone of freestyle rhyming and the
+// graceful fallback for words with no/few perfect rhymes (most proparoxytones).
+// pt/es only; English spelling doesn't map to sound reliably.
+function computeTonicSkeleton(rawWord, language) {
+  const cleanWord = toLowerCleanWord(rawWord);
+  if (cleanWord.length < 2) {
+    return null;
+  }
+  const vowelIndices = getVowelIndices(cleanWord);
+  if (vowelIndices.length === 0) {
+    return null;
+  }
+  let stressedVowelIndex = findStressedVowelIndex(cleanWord, language);
+  if (stressedVowelIndex < 0) {
+    stressedVowelIndex = vowelIndices[vowelIndices.length - 1];
+  }
+  const accentFoldedWord = stripAccents(cleanWord);
+  let tonicSkeleton = '';
+  for (let characterIndex = stressedVowelIndex; characterIndex < accentFoldedWord.length; characterIndex += 1) {
+    if ('aeiou'.includes(accentFoldedWord[characterIndex])) {
+      tonicSkeleton += accentFoldedWord[characterIndex];
+    }
+  }
+  return tonicSkeleton || null;
+}
+
+// The word's final two letters (accent-folded) — keeps the first fallback tier
+// tight: same tonic skeleton AND same ending ("fácil"/"ágil" share "ai" + "il").
+function computeWordEnding(rawWord) {
+  return stripAccents(toLowerCleanWord(rawWord)).slice(-2);
+}
+
 export function getLastWord(rawText) {
   const words = String(rawText || '').toLowerCase().split(/\s+/).filter(Boolean);
   const lastWord = words[words.length - 1] || '';
@@ -196,21 +230,42 @@ function writeCachedWordList(language, words) {
   }
 }
 
-// Build { rhymeKey -> [words] } once per language, keeping the frequency order
-// (most common words first) the source file already provides.
+function pushIntoKeyedWordList(keyedWordList, key, word) {
+  if (!key) {
+    return;
+  }
+  if (!keyedWordList.has(key)) {
+    keyedWordList.set(key, []);
+  }
+  keyedWordList.get(key).push(word);
+}
+
+// Build the per-language rhyme indexes once, keeping the frequency order (most
+// common words first) the source file already provides. Three tiers:
+//   rhymeKeyToWords      — perfect rhyme (tonic rime from the stressed vowel)
+//   assonantKeyToWords   — tonic skeleton + same ending (tight slant rhyme)
+//   tonicSkeletonToWords — tonic skeleton only (assonant / "toante")
 function buildLanguageIndex(language, words) {
   const rhymeKeyToWords = new Map();
+  const assonantKeyToWords = new Map();
+  const tonicSkeletonToWords = new Map();
+  // Assonant tiers are phonetics-based and only reliable for Romance spelling.
+  const buildsAssonantTiers = language === 'pt' || language === 'es';
+
   words.forEach((word) => {
-    const rhymeKey = computeRhymeKey(word, language);
-    if (!rhymeKey) {
+    pushIntoKeyedWordList(rhymeKeyToWords, computeRhymeKey(word, language), word);
+    if (!buildsAssonantTiers) {
       return;
     }
-    if (!rhymeKeyToWords.has(rhymeKey)) {
-      rhymeKeyToWords.set(rhymeKey, []);
+    const tonicSkeleton = computeTonicSkeleton(word, language);
+    if (!tonicSkeleton || tonicSkeleton.length < 2) {
+      return;
     }
-    rhymeKeyToWords.get(rhymeKey).push(word);
+    pushIntoKeyedWordList(assonantKeyToWords, `${tonicSkeleton}|${computeWordEnding(word)}`, word);
+    pushIntoKeyedWordList(tonicSkeletonToWords, tonicSkeleton, word);
   });
-  return { rhymeKeyToWords };
+
+  return { rhymeKeyToWords, assonantKeyToWords, tonicSkeletonToWords };
 }
 
 function ensureLanguageIndex(language) {
@@ -262,12 +317,16 @@ export function ensureCatalogsLoaded(languageFilter) {
 // ── matching ─────────────────────────────────────────────────────────────────
 
 const RHYME_SUGGESTION_LIMIT = 48;
+// When the perfect-rhyme tier yields fewer than this, progressively fall back to
+// slant and then "toante" rhymes so the panel is never empty mid-freestyle.
+// Words with many perfect rhymes never reach the fallback (stay perfect-only).
+const RHYME_FALLBACK_TARGET = 14;
 
-function collectMatchesFromIndex(languageIndex, rhymeKey, spokenWord, matches, seenSuggestions) {
-  if (!languageIndex || !rhymeKey) {
+function collectMatchesFromMap(wordsByKey, key, spokenWord, matches, seenSuggestions) {
+  if (!wordsByKey || !key) {
     return;
   }
-  (languageIndex.rhymeKeyToWords.get(rhymeKey) || []).forEach((candidateWord) => {
+  (wordsByKey.get(key) || []).forEach((candidateWord) => {
     if (candidateWord !== spokenWord && !seenSuggestions.has(candidateWord)) {
       seenSuggestions.add(candidateWord);
       matches.push(candidateWord);
@@ -320,13 +379,46 @@ export async function suggestRhymes(rawText, languageFilter) {
 
   const matches = [];
   const seenSuggestions = new Set();
+  const languages = getLanguagesForFilter(languageFilter);
 
+  // Tier 1 — perfect rhymes: curated phrases first, then the frequency lists.
   collectCuratedMatches(spokenWord, matches, seenSuggestions);
-
-  getLanguagesForFilter(languageFilter).forEach((language) => {
-    const rhymeKey = computeRhymeKey(spokenWord, language);
-    collectMatchesFromIndex(ensureLanguageIndex(language), rhymeKey, spokenWord, matches, seenSuggestions);
+  languages.forEach((language) => {
+    const languageIndex = ensureLanguageIndex(language);
+    collectMatchesFromMap(
+      languageIndex && languageIndex.rhymeKeyToWords,
+      computeRhymeKey(spokenWord, language),
+      spokenWord, matches, seenSuggestions,
+    );
   });
+
+  // Fallbacks — only when perfect rhymes are scarce, so common words keep their
+  // clean perfect-only list while hard words ("fácil", "rápido", proparoxytones)
+  // still get usable suggestions. Tier 2: same tonic skeleton + same ending
+  // (tight slant). Tier 3: same tonic skeleton only (assonant / "toante").
+  const collectFallbackTier = (pickKeyedWordList, buildKey) => {
+    languages.forEach((language) => {
+      const languageIndex = ensureLanguageIndex(language);
+      const tonicSkeleton = computeTonicSkeleton(spokenWord, language);
+      if (!languageIndex || !tonicSkeleton || tonicSkeleton.length < 2) {
+        return;
+      }
+      collectMatchesFromMap(pickKeyedWordList(languageIndex), buildKey(tonicSkeleton), spokenWord, matches, seenSuggestions);
+    });
+  };
+
+  if (matches.length < RHYME_FALLBACK_TARGET) {
+    collectFallbackTier(
+      (languageIndex) => languageIndex.assonantKeyToWords,
+      (tonicSkeleton) => `${tonicSkeleton}|${computeWordEnding(spokenWord)}`,
+    );
+  }
+  if (matches.length < RHYME_FALLBACK_TARGET) {
+    collectFallbackTier(
+      (languageIndex) => languageIndex.tonicSkeletonToWords,
+      (tonicSkeleton) => tonicSkeleton,
+    );
+  }
 
   return matches.slice(0, RHYME_SUGGESTION_LIMIT);
 }
