@@ -322,14 +322,14 @@ const RHYME_SUGGESTION_LIMIT = 48;
 // Words with many perfect rhymes never reach the fallback (stay perfect-only).
 const RHYME_FALLBACK_TARGET = 14;
 
-function collectMatchesFromMap(wordsByKey, key, spokenWord, matches, seenSuggestions) {
+function collectMatchesFromMap(wordsByKey, key, spokenWord, matches, seenSuggestions, tier) {
   if (!wordsByKey || !key) {
     return;
   }
   (wordsByKey.get(key) || []).forEach((candidateWord) => {
     if (candidateWord !== spokenWord && !seenSuggestions.has(candidateWord)) {
       seenSuggestions.add(candidateWord);
-      matches.push(candidateWord);
+      matches.push({ text: candidateWord, tier });
     }
   });
 }
@@ -347,7 +347,7 @@ function collectCuratedMatches(spokenWord, matches, seenSuggestions) {
     }
     if (entryKey === spokenKey) {
       seenSuggestions.add(catalogEntry);
-      matches.push(catalogEntry);
+      matches.push({ text: catalogEntry, tier: 'perfect' });
     }
   });
 }
@@ -388,7 +388,7 @@ export async function suggestRhymes(rawText, languageFilter) {
     collectMatchesFromMap(
       languageIndex && languageIndex.rhymeKeyToWords,
       computeRhymeKey(spokenWord, language),
-      spokenWord, matches, seenSuggestions,
+      spokenWord, matches, seenSuggestions, 'perfect',
     );
   });
 
@@ -396,14 +396,14 @@ export async function suggestRhymes(rawText, languageFilter) {
   // clean perfect-only list while hard words ("fácil", "rápido", proparoxytones)
   // still get usable suggestions. Tier 2: same tonic skeleton + same ending
   // (tight slant). Tier 3: same tonic skeleton only (assonant / "toante").
-  const collectFallbackTier = (pickKeyedWordList, buildKey) => {
+  const collectFallbackTier = (pickKeyedWordList, buildKey, tier) => {
     languages.forEach((language) => {
       const languageIndex = ensureLanguageIndex(language);
       const tonicSkeleton = computeTonicSkeleton(spokenWord, language);
       if (!languageIndex || !tonicSkeleton || tonicSkeleton.length < 2) {
         return;
       }
-      collectMatchesFromMap(pickKeyedWordList(languageIndex), buildKey(tonicSkeleton), spokenWord, matches, seenSuggestions);
+      collectMatchesFromMap(pickKeyedWordList(languageIndex), buildKey(tonicSkeleton), spokenWord, matches, seenSuggestions, tier);
     });
   };
 
@@ -411,14 +411,56 @@ export async function suggestRhymes(rawText, languageFilter) {
     collectFallbackTier(
       (languageIndex) => languageIndex.assonantKeyToWords,
       (tonicSkeleton) => `${tonicSkeleton}|${computeWordEnding(spokenWord)}`,
+      'slant',
     );
   }
   if (matches.length < RHYME_FALLBACK_TARGET) {
     collectFallbackTier(
       (languageIndex) => languageIndex.tonicSkeletonToWords,
       (tonicSkeleton) => tonicSkeleton,
+      'toante',
     );
   }
 
   return matches.slice(0, RHYME_SUGGESTION_LIMIT);
+}
+
+// ── training: rhyme classification + challenge words ──────────────────────────
+
+// Grade how two lines rhyme, by their last word: 'perfect' | 'slant' | 'toante'
+// | 'same' (identical word, not a real rhyme) | null (no rhyme). Powers the
+// freestyle scorer (consecutive bars) and the challenge-word check.
+export function classifyRhyme(rawA, rawB, language = 'pt') {
+  const wordA = getLastWord(rawA);
+  const wordB = getLastWord(rawB);
+  if (wordA.length < 2 || wordB.length < 2) {
+    return null;
+  }
+  if (wordA === wordB) {
+    return 'same';
+  }
+  const keyA = computeRhymeKey(wordA, language);
+  const keyB = computeRhymeKey(wordB, language);
+  if (keyA && keyB && keyA === keyB) {
+    return 'perfect';
+  }
+  const skeletonA = computeTonicSkeleton(wordA, language);
+  const skeletonB = computeTonicSkeleton(wordB, language);
+  if (skeletonA && skeletonB && skeletonA.length >= 2 && skeletonA === skeletonB) {
+    return computeWordEnding(wordA) === computeWordEnding(wordB) ? 'slant' : 'toante';
+  }
+  return null;
+}
+
+// Single, reliably-rhymable pt words to use as practice prompts.
+const challengeWordPool = curatedPortugueseRhymeCatalog.filter((entry) => !/\s/.test(entry));
+
+export function pickChallengeWord(previousWord) {
+  for (let attempt = 0; attempt < 8; attempt += 1) {
+    const candidate = challengeWordPool[Math.floor(Math.random() * challengeWordPool.length)];
+    if (candidate && candidate !== previousWord) {
+      return candidate;
+    }
+  }
+  return challengeWordPool[0] || 'amor';
 }

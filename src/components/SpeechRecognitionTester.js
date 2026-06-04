@@ -21,6 +21,62 @@ function renderListItemsIfChanged(listElement, nextItems) {
   });
 }
 
+// Rhyme suggestions are { text, tier } — render the word plus a small badge for
+// the approximate tiers so the user knows a suggestion is a slant/toante rhyme.
+function renderRhymeSuggestionsIfChanged(listElement, nextItems) {
+  const serializedNextItems = JSON.stringify(nextItems);
+  if (listElement.dataset.items === serializedNextItems) {
+    return;
+  }
+
+  listElement.dataset.items = serializedNextItems;
+  listElement.innerHTML = '';
+  nextItems.forEach((suggestion) => {
+    const listItem = document.createElement('li');
+    listItem.dataset.word = suggestion.text;
+    listItem.dataset.tier = suggestion.tier || 'perfect';
+
+    const wordElement = document.createElement('span');
+    wordElement.className = 'rhyme-word';
+    wordElement.textContent = suggestion.text;
+    listItem.appendChild(wordElement);
+
+    if (suggestion.tier === 'slant' || suggestion.tier === 'toante') {
+      const badgeElement = document.createElement('span');
+      badgeElement.className = 'rhyme-badge';
+      badgeElement.textContent = suggestion.tier === 'slant' ? 'aprox.' : 'toante';
+      listItem.appendChild(badgeElement);
+    }
+
+    listElement.appendChild(listItem);
+  });
+}
+
+const TRAINING_FEEDBACK_BY_TIER = {
+  perfect: 'Rima perfeita!',
+  slant: 'Rima aproximada!',
+  toante: 'Rima toante!',
+  same: 'Repetiu a palavra — vale zero.',
+  none: 'Sem rima dessa vez.',
+  start: 'Primeira linha — manda a próxima pra rimar.',
+};
+
+function trainingFeedbackMessage(lastResult) {
+  if (!lastResult) {
+    return 'Fale duas frases que rimem pra pontuar.';
+  }
+  let message = TRAINING_FEEDBACK_BY_TIER[lastResult.tier] || '';
+  if (lastResult.points) {
+    message += ` +${lastResult.points}`;
+  }
+  if (lastResult.challengeHit) {
+    message += ' · 🎯 desafio! +2';
+  }
+  if (lastResult.rhymedWith && lastResult.tier !== 'same' && lastResult.tier !== 'start') {
+    message += ` (${lastResult.word} / ${lastResult.rhymedWith})`;
+  }
+  return message;
+}
 
 function isGoogleChromeBrowser() {
   const userAgent = navigator.userAgent || '';
@@ -29,14 +85,14 @@ function isGoogleChromeBrowser() {
 
 async function getBrowserSelectedMicrophoneLabel() {
   if (!navigator.mediaDevices?.enumerateDevices) {
-    return 'Mic: Browser default microphone';
+    return 'Microfone: microfone padrão';
   }
 
   const mediaDevices = await navigator.mediaDevices.enumerateDevices();
   const selectedMicrophone = mediaDevices.find((mediaDevice) => mediaDevice.kind === 'audioinput' && mediaDevice.deviceId === 'default')
     || mediaDevices.find((mediaDevice) => mediaDevice.kind === 'audioinput');
 
-  return `Mic: ${selectedMicrophone?.label || 'Browser default microphone'}`;
+  return `Microfone: ${selectedMicrophone?.label || 'microfone padrão'}`;
 }
 
 function selectionIntersectsElement(element) {
@@ -56,10 +112,11 @@ export function renderSpeechRecognitionTester(rootElement) {
     <main class="container">
       <header class="hero">
         <div>
-          <p class="eyebrow">Live rhyme studio</p>
+          <p class="eyebrow">Estúdio de freestyle ao vivo</p>
           <h1>Rhyme <span>Trainer</span></h1>
           <p class="intro">Capture seu freestyle em tempo real, veja a última frase e clique em qualquer rima para copiá-la — sem parar o microfone. Escolha a bandeira para treinar em outro idioma (muda a transcrição e as rimas).</p>
-          <div class="listen-controls"><button class="listen-button" id="toggleListeningButton" type="button"><span class="listen-icon">🎙</span><span id="toggleListeningButtonLabel">Start listening</span></button><span class="microphone-label" id="microphoneLabelValue">Mic: No microphone active</span></div>
+          <ul class="badges"><li>🎙️ Tempo real</li><li>🆓 Grátis</li><li>🌐 No navegador</li><li>PT · EN · ES</li></ul>
+          <div class="listen-controls"><button class="listen-button" id="toggleListeningButton" type="button"><span class="listen-icon">🎙</span><span id="toggleListeningButtonLabel">Começar</span></button><span class="microphone-label" id="microphoneLabelValue">Microfone: nenhum ativo</span></div>
         </div>
       </header>
       <section class="status-row" hidden>
@@ -68,22 +125,44 @@ export function renderSpeechRecognitionTester(rootElement) {
         <div class="error" id="speechRecognitionErrorMessage"></div>
       </section>
       <section class="grid">
+        <section class="panel large training-panel">
+          <div class="panel-title">
+            <strong>Treino</strong>
+            <button class="ghost-button" id="resetTrainingButton" type="button">Zerar</button>
+          </div>
+          <div class="training-grid">
+            <div class="stat"><span class="stat-label">Pontos</span><span class="stat-value" id="trainingScore">0</span></div>
+            <div class="stat"><span class="stat-label">Sequência</span><span class="stat-value" id="trainingStreak">0</span></div>
+            <div class="stat"><span class="stat-label">Recorde</span><span class="stat-value" id="trainingBest">0</span></div>
+          </div>
+          <p class="training-feedback" id="trainingFeedback">Fale duas frases que rimem pra pontuar.</p>
+          <div class="training-tools">
+            <div class="tool">
+              <span class="tool-label">Palavra-desafio</span>
+              <div class="tool-row"><strong class="challenge-word" id="challengeWordValue">—</strong><button class="ghost-button" id="newChallengeButton" type="button">Nova</button></div>
+            </div>
+            <div class="tool">
+              <span class="tool-label">Beat</span>
+              <div class="tool-row"><button class="ghost-button beat-toggle" id="beatToggleButton" type="button">▶ Play</button><input class="bpm-input" id="bpmInput" type="number" min="40" max="240" step="1" value="90" aria-label="BPM" /><span class="bpm-unit">BPM</span><span class="beat-dot" id="beatDot"></span></div>
+            </div>
+          </div>
+        </section>
         <section class="panel compact">
-          <strong class="panel-title">Microphone level</strong>
+          <strong class="panel-title">Nível do microfone</strong>
           <div class="meter">
             <div id="microphoneLevelBar"></div>
           </div>
         </section>
         <section class="panel compact">
-          <strong class="panel-title">Interim transcript</strong>
+          <strong class="panel-title">Transcrição ao vivo</strong>
           <p class="transcript" id="interimTranscriptValue">-</p>
         </section>
         <section class="panel large selectable-panel" id="rhymePanel">
           <div class="panel-title">
-            <strong>Rhymes for the last phrase</strong>
-            <div class="language-filter" aria-label="Rhyme language filter">
-              <span>Language</span>
-              <button class="language-filter-option is-active" type="button" data-rhyme-language-filter="all">All</button>
+            <strong>Rimas da última frase</strong>
+            <div class="language-filter" aria-label="Idioma das rimas">
+              <span>Idioma</span>
+              <button class="language-filter-option is-active" type="button" data-rhyme-language-filter="all">Todos</button>
               <button class="language-filter-option" type="button" data-rhyme-language-filter="pt" aria-label="Português"><span class="flag flag-br"></span></button>
               <button class="language-filter-option" type="button" data-rhyme-language-filter="en" aria-label="English"><span class="flag flag-us"></span></button>
               <button class="language-filter-option" type="button" data-rhyme-language-filter="es" aria-label="Español"><span class="flag flag-es"></span></button>
@@ -94,10 +173,14 @@ export function renderSpeechRecognitionTester(rootElement) {
           <div class="copy-toast" id="rhymeCopyToast" role="status" aria-live="polite" hidden>Copiado!</div>
         </section>
         <section class="panel large selectable-panel">
-          <strong class="panel-title">Final transcript history</strong>
+          <strong class="panel-title">Histórico</strong>
           <ul id="finalTranscriptHistory"></ul>
         </section>
       </section>
+      <footer class="site-footer">
+        <span>Rhyme — treinador de rima &amp; freestyle · feito por <a href="https://github.com/Bobagi" target="_blank" rel="noopener">Bobagi</a></span>
+        <a href="https://github.com/Bobagi/Rhyme" target="_blank" rel="noopener">Código no GitHub ↗</a>
+      </footer>
     </main>
   `;
 
@@ -117,13 +200,91 @@ export function renderSpeechRecognitionTester(rootElement) {
   const microphoneLabelValue = rootElement.querySelector('#microphoneLabelValue');
   const rhymePanel = rootElement.querySelector('#rhymePanel');
   const rhymeCopyToast = rootElement.querySelector('#rhymeCopyToast');
+  const trainingScoreValue = rootElement.querySelector('#trainingScore');
+  const trainingStreakValue = rootElement.querySelector('#trainingStreak');
+  const trainingBestValue = rootElement.querySelector('#trainingBest');
+  const trainingFeedbackValue = rootElement.querySelector('#trainingFeedback');
+  const challengeWordValue = rootElement.querySelector('#challengeWordValue');
+  const newChallengeButton = rootElement.querySelector('#newChallengeButton');
+  const resetTrainingButton = rootElement.querySelector('#resetTrainingButton');
+  const beatToggleButton = rootElement.querySelector('#beatToggleButton');
+  const bpmInput = rootElement.querySelector('#bpmInput');
+  const beatDot = rootElement.querySelector('#beatDot');
   let isPointerSelectingRhymeText = false;
   let isSelectingRhymeText = false;
   let latestListeningStatus = 'idle';
 
   getBrowserSelectedMicrophoneLabel()
     .then((browserSelectedMicrophoneLabel) => setTextContentIfChanged(microphoneLabelValue, browserSelectedMicrophoneLabel))
-    .catch(() => setTextContentIfChanged(microphoneLabelValue, 'Mic: Browser default microphone'));
+    .catch(() => setTextContentIfChanged(microphoneLabelValue, 'Microfone: microfone padrão'));
+
+  // ── metronome (local, audio-only) ──────────────────────────────────────────
+  let metronomeAudioContext = null;
+  let metronomeTimer = 0;
+  let isBeatPlaying = false;
+
+  const beatIntervalMs = () => {
+    const beatsPerMinute = Math.min(240, Math.max(40, Number(bpmInput.value) || 90));
+    return 60000 / beatsPerMinute;
+  };
+
+  const playMetronomeClick = () => {
+    if (!metronomeAudioContext) {
+      return;
+    }
+    const clickOscillator = metronomeAudioContext.createOscillator();
+    const clickGain = metronomeAudioContext.createGain();
+    const startTime = metronomeAudioContext.currentTime;
+    clickOscillator.frequency.value = 1100;
+    clickGain.gain.setValueAtTime(0.0001, startTime);
+    clickGain.gain.exponentialRampToValueAtTime(0.45, startTime + 0.001);
+    clickGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.05);
+    clickOscillator.connect(clickGain);
+    clickGain.connect(metronomeAudioContext.destination);
+    clickOscillator.start(startTime);
+    clickOscillator.stop(startTime + 0.06);
+    beatDot.classList.add('is-pulsing');
+    window.setTimeout(() => beatDot.classList.remove('is-pulsing'), 90);
+  };
+
+  const startBeat = () => {
+    if (isBeatPlaying) {
+      return;
+    }
+    if (!metronomeAudioContext) {
+      const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+      metronomeAudioContext = new AudioContextConstructor();
+    }
+    if (metronomeAudioContext.state === 'suspended') {
+      metronomeAudioContext.resume().catch(() => {});
+    }
+    isBeatPlaying = true;
+    beatToggleButton.textContent = '⏸ Stop';
+    beatToggleButton.classList.add('is-active');
+    playMetronomeClick();
+    metronomeTimer = window.setInterval(playMetronomeClick, beatIntervalMs());
+  };
+
+  const stopBeat = () => {
+    isBeatPlaying = false;
+    beatToggleButton.textContent = '▶ Play';
+    beatToggleButton.classList.remove('is-active');
+    if (metronomeTimer) {
+      window.clearInterval(metronomeTimer);
+      metronomeTimer = 0;
+    }
+  };
+
+  beatToggleButton.addEventListener('click', () => (isBeatPlaying ? stopBeat() : startBeat()));
+  bpmInput.addEventListener('change', () => {
+    if (isBeatPlaying) {
+      stopBeat();
+      startBeat();
+    }
+  });
+
+  newChallengeButton.addEventListener('click', () => speechRecognitionController.newChallenge());
+  resetTrainingButton.addEventListener('click', () => speechRecognitionController.resetTraining());
 
   const updateRhymeSelectionState = () => {
     isSelectingRhymeText = isPointerSelectingRhymeText || selectionIntersectsElement(rhymePanel);
@@ -198,7 +359,7 @@ export function renderSpeechRecognitionTester(rootElement) {
     if (activeSelection && !activeSelection.isCollapsed && selectionIntersectsElement(listItemElement)) {
       return;
     }
-    copyRhymeSuggestion(listItemElement.textContent, listItemElement);
+    copyRhymeSuggestion(listItemElement.dataset.word || listItemElement.textContent, listItemElement);
   });
 
   toggleListeningButton.addEventListener('click', () => {
@@ -212,21 +373,32 @@ export function renderSpeechRecognitionTester(rootElement) {
 
   const unsubscribe = speechRecognitionController.subscribe((speechRecognitionSnapshot) => {
     const speechRecognitionErrorMessages = {
-      network: 'Speech recognition error: network. Reconnecting automatically. If it persists, open the forwarded Codespaces HTTPS URL in Google Chrome and allow microphone access.',
+      network: 'Erro de rede no reconhecimento de voz. Reconectando automaticamente. Se persistir, recarregue a página no Google Chrome e permita o microfone.',
+      'not-allowed': 'Acesso ao microfone negado. Permita o microfone para este site nas configurações do navegador.',
+      'service-not-allowed': 'O serviço de reconhecimento de voz foi bloqueado. Use o Google Chrome e permita o microfone.',
     };
     const isListening = speechRecognitionSnapshot.listeningStatus === 'listening' || speechRecognitionSnapshot.listeningStatus === 'starting';
     latestListeningStatus = speechRecognitionSnapshot.listeningStatus;
-    setTextContentIfChanged(toggleListeningButtonLabel, isListening ? 'Stop listening' : 'Start listening');
+    setTextContentIfChanged(toggleListeningButtonLabel, isListening ? 'Parar' : 'Começar');
     setTextContentIfChanged(listenIcon, isListening ? '■' : '🎙');
     toggleListeningButton.classList.toggle('is-listening', isListening);
-    setTextContentIfChanged(unsupportedBrowserMessage, speechRecognitionSnapshot.isSupported ? '' : 'This browser does not support the Web Speech API.');
-    setTextContentIfChanged(braveBrowserMessage, isGoogleChromeBrowser() ? '' : 'Speech recognition may be unstable depending on this browser. Use Google Chrome for the best experience.');
+    setTextContentIfChanged(unsupportedBrowserMessage, speechRecognitionSnapshot.isSupported ? '' : 'Este navegador não suporta a Web Speech API. Use o Google Chrome.');
+    setTextContentIfChanged(braveBrowserMessage, isGoogleChromeBrowser() ? '' : 'O reconhecimento de voz pode ficar instável neste navegador. Use o Google Chrome para a melhor experiência.');
     setTextContentIfChanged(speechRecognitionErrorMessage, speechRecognitionSnapshot.speechRecognitionError
-      ? speechRecognitionErrorMessages[speechRecognitionSnapshot.speechRecognitionError] || `Speech recognition error: ${speechRecognitionSnapshot.speechRecognitionError}`
+      ? speechRecognitionErrorMessages[speechRecognitionSnapshot.speechRecognitionError] || `Erro no reconhecimento de voz: ${speechRecognitionSnapshot.speechRecognitionError}`
       : '');
     statusRow.hidden = !unsupportedBrowserMessage.textContent && !braveBrowserMessage.textContent && !speechRecognitionErrorMessage.textContent;
     microphoneLevelBar.style.width = `${speechRecognitionSnapshot.microphoneLevel}%`;
-    setTextContentIfChanged(microphoneLabelValue, `Mic: ${speechRecognitionSnapshot.microphoneLabel || 'No microphone active'}`);
+    setTextContentIfChanged(microphoneLabelValue, `Microfone: ${speechRecognitionSnapshot.microphoneLabel || 'nenhum ativo'}`);
+
+    // Training stats + challenge update even while the user is selecting rhyme text.
+    const training = speechRecognitionSnapshot.training || { score: 0, streak: 0, bestStreak: 0, lastResult: null };
+    setTextContentIfChanged(trainingScoreValue, String(training.score));
+    setTextContentIfChanged(trainingStreakValue, training.streak >= 2 ? `🔥 ${training.streak}` : String(training.streak));
+    setTextContentIfChanged(trainingBestValue, String(training.bestStreak));
+    setTextContentIfChanged(trainingFeedbackValue, trainingFeedbackMessage(training.lastResult));
+    trainingFeedbackValue.dataset.tier = training.lastResult ? training.lastResult.tier : '';
+    setTextContentIfChanged(challengeWordValue, speechRecognitionSnapshot.challengeWord || '—');
 
     if (isSelectingRhymeText) {
       return;
@@ -234,7 +406,7 @@ export function renderSpeechRecognitionTester(rootElement) {
 
     setTextContentIfChanged(interimTranscriptValue, speechRecognitionSnapshot.interimTranscript || '-');
     setTextContentIfChanged(lastRecognizedPhraseValue, speechRecognitionSnapshot.lastRecognizedPhrase || '-');
-    renderListItemsIfChanged(rhymeSuggestionsList, speechRecognitionSnapshot.rhymeSuggestions);
+    renderRhymeSuggestionsIfChanged(rhymeSuggestionsList, speechRecognitionSnapshot.rhymeSuggestions);
     rhymeLanguageFilterOptions.forEach((rhymeLanguageFilterOption) => {
       rhymeLanguageFilterOption.classList.toggle('is-active', rhymeLanguageFilterOption.dataset.rhymeLanguageFilter === speechRecognitionSnapshot.rhymeLanguageFilter);
     });
@@ -242,6 +414,11 @@ export function renderSpeechRecognitionTester(rootElement) {
   });
 
   return () => {
+    stopBeat();
+    if (metronomeAudioContext) {
+      metronomeAudioContext.close().catch(() => {});
+      metronomeAudioContext = null;
+    }
     rhymePanel.removeEventListener('pointerdown', startRhymeSelection);
     document.removeEventListener('selectionchange', updateRhymeSelectionState);
     document.removeEventListener('pointerup', finishRhymeSelection);

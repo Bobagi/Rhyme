@@ -5,6 +5,8 @@ import {
   suggestRhymesFromCuratedCatalog,
   ensureCatalogsLoaded,
   getLastWord,
+  classifyRhyme,
+  pickChallengeWord,
 } from '../services/rhymeEngine.js';
 
 const INTERIM_RHYME_DEBOUNCE_MS = 220;
@@ -19,10 +21,12 @@ export function useRealTimeSpeechRecognition() {
     lastRecognizedPhrase: '',
     speechRecognitionError: '',
     microphoneLevel: 0,
-    microphoneLabel: 'No microphone active',
+    microphoneLabel: 'nenhum ativo',
     isSupported: true,
     shouldKeepListening: false,
     rhymeLanguageFilter: 'all',
+    challengeWord: pickChallengeWord(),
+    training: { score: 0, streak: 0, bestStreak: 0, totalLines: 0, rhymedLines: 0, lastResult: null },
   };
 
   const listeners = new Set();
@@ -36,6 +40,7 @@ export function useRealTimeSpeechRecognition() {
   let restartBackoffTimer = 0;
   let consecutiveRestartCount = 0;
   let pendingRhymeRequestToken = 0;
+  let previousLineWord = '';
 
   function updateInterface() {
     listeners.forEach((listenerCallback) => listenerCallback({ ...recognitionState }));
@@ -79,6 +84,65 @@ export function useRealTimeSpeechRecognition() {
       interimRhymeDebounceTimer = 0;
       refreshRhymeSuggestions(interimPhrase);
     }, INTERIM_RHYME_DEBOUNCE_MS);
+  }
+
+  const RHYME_POINTS = { perfect: 3, slant: 2, toante: 1 };
+
+  function trainingLanguage() {
+    return recognitionState.rhymeLanguageFilter === 'all' ? 'pt' : recognitionState.rhymeLanguageFilter;
+  }
+
+  // Grade a finalized bar against the previous one (streak/score) and against the
+  // current challenge word (bonus + rotate). Runs only on finalized phrases.
+  function scoreFinalizedLine(lineText) {
+    const lineWord = getLastWord(lineText);
+    if (!lineWord) {
+      return;
+    }
+    const language = trainingLanguage();
+    const training = recognitionState.training;
+
+    let lastResult;
+    if (previousLineWord) {
+      const tier = classifyRhyme(lineWord, previousLineWord, language);
+      const points = RHYME_POINTS[tier] || 0;
+      if (points > 0) {
+        training.score += points;
+        training.streak += 1;
+        training.rhymedLines += 1;
+        training.bestStreak = Math.max(training.bestStreak, training.streak);
+      } else if (tier !== 'same') {
+        // A clear non-rhyme breaks the streak; repeating the same word is neutral.
+        training.streak = 0;
+      }
+      training.totalLines += 1;
+      lastResult = { tier: tier || 'none', points, word: lineWord, rhymedWith: previousLineWord, challengeHit: false };
+    } else {
+      lastResult = { tier: 'start', points: 0, word: lineWord, rhymedWith: '', challengeHit: false };
+    }
+
+    if (recognitionState.challengeWord) {
+      const challengeTier = classifyRhyme(lineWord, recognitionState.challengeWord, language);
+      if (challengeTier && challengeTier !== 'same') {
+        training.score += 2;
+        lastResult.challengeHit = true;
+        recognitionState.challengeWord = pickChallengeWord(recognitionState.challengeWord);
+      }
+    }
+
+    training.lastResult = lastResult;
+    previousLineWord = lineWord;
+  }
+
+  function newChallenge() {
+    recognitionState.challengeWord = pickChallengeWord(recognitionState.challengeWord);
+    updateInterface();
+  }
+
+  function resetTraining() {
+    previousLineWord = '';
+    recognitionState.training = { score: 0, streak: 0, bestStreak: 0, totalLines: 0, rhymedLines: 0, lastResult: null };
+    updateInterface();
   }
 
   const speechRecognitionService = new BrowserSpeechRecognitionService(defaultSpeechLanguage, {
@@ -155,6 +219,7 @@ export function useRealTimeSpeechRecognition() {
         }
         recognitionState.lastRecognizedPhrase = latestFinalTranscriptSegment;
         refreshRhymeSuggestions(latestFinalTranscriptSegment, { forceRecompute: true });
+        scoreFinalizedLine(latestFinalTranscriptSegment);
       } else if (activeInterimTranscript) {
         // Live rhymes as you speak — update only when the trailing word changes.
         recognitionState.lastRecognizedPhrase = activeInterimTranscript;
@@ -177,13 +242,13 @@ export function useRealTimeSpeechRecognition() {
     recognitionState.speechRecognitionError = '';
     recognitionState.shouldKeepListening = true;
     recognitionState.listeningStatus = 'starting';
-    recognitionState.microphoneLabel = 'Requesting microphone...';
+    recognitionState.microphoneLabel = 'Pedindo acesso ao microfone...';
     consecutiveRestartCount = 0;
     ensureCatalogsLoaded(recognitionState.rhymeLanguageFilter);
     updateInterface();
     try {
       microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      recognitionState.microphoneLabel = microphoneStream.getAudioTracks()[0]?.label || 'Default microphone';
+      recognitionState.microphoneLabel = microphoneStream.getAudioTracks()[0]?.label || 'microfone padrão';
       updateInterface();
       microphoneAudioContext = new window.AudioContext();
       if (microphoneAudioContext.state === 'suspended') {
@@ -217,7 +282,7 @@ export function useRealTimeSpeechRecognition() {
       recognitionState.speechRecognitionError = (caughtError && caughtError.name) || 'microphone-access-failed';
       recognitionState.shouldKeepListening = false;
       recognitionState.listeningStatus = 'stopped';
-      recognitionState.microphoneLabel = 'No microphone active';
+      recognitionState.microphoneLabel = 'nenhum ativo';
       updateInterface();
     }
   }
@@ -291,5 +356,5 @@ export function useRealTimeSpeechRecognition() {
     listeners.clear();
   }
 
-  return { subscribe, startListening, stopListening, setRhymeLanguageFilter, dispose };
+  return { subscribe, startListening, stopListening, setRhymeLanguageFilter, newChallenge, resetTraining, dispose };
 }
