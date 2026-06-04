@@ -21,7 +21,7 @@ export function useRealTimeSpeechRecognition() {
     lastRecognizedPhrase: '',
     speechRecognitionError: '',
     microphoneLevel: 0,
-    microphoneLabel: 'nenhum ativo',
+    microphoneLabel: '',
     isSupported: true,
     shouldKeepListening: false,
     rhymeLanguageFilter: 'all',
@@ -242,13 +242,13 @@ export function useRealTimeSpeechRecognition() {
     recognitionState.speechRecognitionError = '';
     recognitionState.shouldKeepListening = true;
     recognitionState.listeningStatus = 'starting';
-    recognitionState.microphoneLabel = 'Pedindo acesso ao microfone...';
+    recognitionState.microphoneLabel = '';
     consecutiveRestartCount = 0;
     ensureCatalogsLoaded(recognitionState.rhymeLanguageFilter);
     updateInterface();
     try {
       microphoneStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      recognitionState.microphoneLabel = microphoneStream.getAudioTracks()[0]?.label || 'microfone padrão';
+      recognitionState.microphoneLabel = microphoneStream.getAudioTracks()[0]?.label || '';
       updateInterface();
       microphoneAudioContext = new window.AudioContext();
       if (microphoneAudioContext.state === 'suspended') {
@@ -282,7 +282,7 @@ export function useRealTimeSpeechRecognition() {
       recognitionState.speechRecognitionError = (caughtError && caughtError.name) || 'microphone-access-failed';
       recognitionState.shouldKeepListening = false;
       recognitionState.listeningStatus = 'stopped';
-      recognitionState.microphoneLabel = 'nenhum ativo';
+      recognitionState.microphoneLabel = '';
       updateInterface();
     }
   }

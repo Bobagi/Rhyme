@@ -91,16 +91,42 @@
       }
 
       .hero {
-        display: grid;
-        grid-template-columns: 1fr;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
         gap: 16px;
-        align-items: start;
+        align-items: flex-start;
         padding: 18px;
         border: 1px solid var(--border);
         border-radius: 22px;
         background: linear-gradient(135deg, rgba(255, 212, 59, 0.14), rgba(255, 255, 255, 0.035));
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
       }
+      .hero-text { flex: 1 1 320px; min-width: 0; }
+
+      .lang-switcher {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 5px 8px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        background: rgba(0, 0, 0, 0.28);
+      }
+      .lang-globe { font-size: 0.9rem; margin-right: 2px; opacity: 0.8; }
+      .lang-option {
+        border: 0;
+        border-radius: 999px;
+        padding: 5px 9px;
+        color: var(--yellow-soft);
+        background: transparent;
+        font: inherit;
+        font-size: 0.74rem;
+        font-weight: 950;
+        letter-spacing: 0.04em;
+        cursor: pointer;
+      }
+      .lang-option.is-active { color: #090909; background: linear-gradient(135deg, var(--yellow), var(--yellow-strong)); }
 
       .eyebrow {
         margin: 0 0 8px;
@@ -422,17 +448,10 @@
       .tool-label { color: var(--yellow); font-size: 0.7rem; font-weight: 950; letter-spacing: 0.1em; text-transform: uppercase; }
       .tool-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
       .challenge-word { font-size: 1.35rem; font-weight: 950; color: var(--text); }
-      .bpm-input {
-        width: 76px;
-        padding: 8px 10px;
-        border: 1px solid var(--border);
-        border-radius: 10px;
-        color: var(--text);
-        background: rgba(255, 255, 255, 0.05);
-        font: inherit;
-        font-weight: 800;
-      }
-      .bpm-unit { color: var(--muted); font-size: 0.78rem; font-weight: 800; }
+      .bpm-slider { width: 130px; max-width: 45vw; accent-color: var(--yellow-strong); cursor: pointer; }
+      .bpm-readout { color: var(--text); font-size: 0.82rem; font-weight: 800; }
+      .bpm-readout strong { color: var(--yellow); }
+      .bpm-hint { color: var(--muted); font-size: 0.7rem; font-weight: 700; }
       .beat-toggle.is-active { color: #090909; background: linear-gradient(135deg, var(--yellow), var(--yellow-strong)); border-color: var(--yellow-strong); }
       .beat-dot {
         width: 14px;
