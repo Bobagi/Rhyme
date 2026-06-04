@@ -13,11 +13,7 @@
 // Frequency lists: hermitdave/FrequencyWords (OpenSubtitles). Code MIT, lists
 // CC BY-SA 4.0 — see docs/frequency-words.md.
 
-export const remoteRhymeWordListSources = {
-  pt: 'https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2016/pt_br/pt_br_50k.txt',
-  en: 'https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2018/en/en_50k.txt',
-  es: 'https://raw.githubusercontent.com/hermitdave/FrequencyWords/master/content/2016/es/es_50k.txt',
-};
+import { ensureWordListLoaded, getLoadedWordList } from './wordListRepository.js';
 
 // Curated Brazilian-Portuguese rhymes, including multi-word phrases. Phrases are
 // matched by their last word, so they now appear as suggestions (previously the
@@ -193,42 +189,9 @@ function getCatalogEntryLastWord(catalogEntry) {
   return toLowerCleanWord(tokens[tokens.length - 1] || '');
 }
 
-// ── frequency-list loading + caching ─────────────────────────────────────────
+// ── rhyme indexes (built from the repository's loaded word lists) ─────────────
 
-const CACHE_VERSION = 'v1';
-const loadedWordListByLanguage = {};
 const loadedIndexByLanguage = {};
-let remoteLoadPromiseByLanguage = {};
-
-function isAcceptableFrequencyWord(candidateWord) {
-  const cleanWord = toLowerCleanWord(candidateWord);
-  return cleanWord.length > 2 && candidateWord === candidateWord.toLowerCase() && !/[\s-]/.test(candidateWord);
-}
-
-function parseFrequencyWordList(frequencyListText) {
-  return frequencyListText
-    .split(/\r?\n/)
-    .map((frequencyListLine) => frequencyListLine.trim().split(/\s+/)[0])
-    .filter(Boolean)
-    .filter(isAcceptableFrequencyWord);
-}
-
-function readCachedWordList(language) {
-  try {
-    const cachedValue = window.localStorage.getItem(`rhyme.freq.${CACHE_VERSION}.${language}`);
-    return cachedValue ? cachedValue.split('\n') : null;
-  } catch (storageReadError) {
-    return null;
-  }
-}
-
-function writeCachedWordList(language, words) {
-  try {
-    window.localStorage.setItem(`rhyme.freq.${CACHE_VERSION}.${language}`, words.join('\n'));
-  } catch (storageWriteError) {
-    // Quota or privacy mode — caching is best-effort.
-  }
-}
 
 function pushIntoKeyedWordList(keyedWordList, key, word) {
   if (!key) {
@@ -269,41 +232,11 @@ function buildLanguageIndex(language, words) {
 }
 
 function ensureLanguageIndex(language) {
-  if (!loadedIndexByLanguage[language] && loadedWordListByLanguage[language]) {
-    loadedIndexByLanguage[language] = buildLanguageIndex(language, loadedWordListByLanguage[language]);
+  const loadedWordList = getLoadedWordList(language);
+  if (!loadedIndexByLanguage[language] && loadedWordList) {
+    loadedIndexByLanguage[language] = buildLanguageIndex(language, loadedWordList);
   }
   return loadedIndexByLanguage[language];
-}
-
-function ensureLanguageLoaded(language) {
-  if (loadedWordListByLanguage[language]) {
-    return Promise.resolve(loadedWordListByLanguage[language]);
-  }
-  if (remoteLoadPromiseByLanguage[language]) {
-    return remoteLoadPromiseByLanguage[language];
-  }
-
-  const cachedWordList = readCachedWordList(language);
-  if (cachedWordList && cachedWordList.length > 0) {
-    loadedWordListByLanguage[language] = cachedWordList;
-    return Promise.resolve(cachedWordList);
-  }
-
-  remoteLoadPromiseByLanguage[language] = fetch(remoteRhymeWordListSources[language])
-    .then((frequencyListResponse) => frequencyListResponse.text())
-    .then((frequencyListText) => {
-      const words = parseFrequencyWordList(frequencyListText);
-      loadedWordListByLanguage[language] = words;
-      loadedIndexByLanguage[language] = null;
-      writeCachedWordList(language, words);
-      return words;
-    })
-    .catch(() => {
-      loadedWordListByLanguage[language] = loadedWordListByLanguage[language] || [];
-      return loadedWordListByLanguage[language];
-    });
-
-  return remoteLoadPromiseByLanguage[language];
 }
 
 function getLanguagesForFilter(languageFilter) {
@@ -311,7 +244,7 @@ function getLanguagesForFilter(languageFilter) {
 }
 
 export function ensureCatalogsLoaded(languageFilter) {
-  return Promise.all(getLanguagesForFilter(languageFilter).map(ensureLanguageLoaded));
+  return Promise.all(getLanguagesForFilter(languageFilter).map(ensureWordListLoaded));
 }
 
 // ── matching ─────────────────────────────────────────────────────────────────

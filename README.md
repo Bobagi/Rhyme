@@ -42,6 +42,12 @@ Funciona em **português, inglês e espanhol**.
 Vanilla JS (ES modules), Web Speech API e AudioContext. Servido como arquivos
 estáticos (nginx). Sem framework e sem etapa de build.
 
+## Arquitetura
+
+Arquitetura em camadas (clean-ish) com domínio **puro e testável**, seguindo os
+princípios **SOLID** e os padrões **Adapter / Repository / Observer**. Visão geral,
+mapa de diretórios e fluxo de dados em [`ARCHITECTURE.md`](./ARCHITECTURE.md).
+
 ## Run locally
 
 From the project root, start a static file server:

@@ -5,9 +5,9 @@ import {
   suggestRhymesFromCuratedCatalog,
   ensureCatalogsLoaded,
   getLastWord,
-  classifyRhyme,
   pickChallengeWord,
 } from '../services/rhymeEngine.js';
+import { scoreLine, createInitialTrainingState } from '../services/trainingScorer.js';
 
 const INTERIM_RHYME_DEBOUNCE_MS = 220;
 const MAX_RESTART_BACKOFF_MS = 4000;
@@ -26,7 +26,7 @@ export function useRealTimeSpeechRecognition() {
     shouldKeepListening: false,
     rhymeLanguageFilter: 'all',
     challengeWord: pickChallengeWord(),
-    training: { score: 0, streak: 0, bestStreak: 0, totalLines: 0, rhymedLines: 0, lastResult: null },
+    training: createInitialTrainingState(),
   };
 
   const listeners = new Set();
@@ -86,52 +86,28 @@ export function useRealTimeSpeechRecognition() {
     }, INTERIM_RHYME_DEBOUNCE_MS);
   }
 
-  const RHYME_POINTS = { perfect: 3, slant: 2, toante: 1 };
-
   function trainingLanguage() {
     return recognitionState.rhymeLanguageFilter === 'all' ? 'pt' : recognitionState.rhymeLanguageFilter;
   }
 
-  // Grade a finalized bar against the previous one (streak/score) and against the
-  // current challenge word (bonus + rotate). Runs only on finalized phrases.
+  // Grade a finalized bar via the pure scorer, then rotate the challenge on a hit.
   function scoreFinalizedLine(lineText) {
     const lineWord = getLastWord(lineText);
     if (!lineWord) {
       return;
     }
-    const language = trainingLanguage();
-    const training = recognitionState.training;
-
-    let lastResult;
-    if (previousLineWord) {
-      const tier = classifyRhyme(lineWord, previousLineWord, language);
-      const points = RHYME_POINTS[tier] || 0;
-      if (points > 0) {
-        training.score += points;
-        training.streak += 1;
-        training.rhymedLines += 1;
-        training.bestStreak = Math.max(training.bestStreak, training.streak);
-      } else if (tier !== 'same') {
-        // A clear non-rhyme breaks the streak; repeating the same word is neutral.
-        training.streak = 0;
-      }
-      training.totalLines += 1;
-      lastResult = { tier: tier || 'none', points, word: lineWord, rhymedWith: previousLineWord, challengeHit: false };
-    } else {
-      lastResult = { tier: 'start', points: 0, word: lineWord, rhymedWith: '', challengeHit: false };
+    const scored = scoreLine({
+      lineWord,
+      previousLineWord,
+      challengeWord: recognitionState.challengeWord,
+      training: recognitionState.training,
+      language: trainingLanguage(),
+    });
+    recognitionState.training = scored.training;
+    previousLineWord = scored.previousLineWord;
+    if (scored.challengeHit) {
+      recognitionState.challengeWord = pickChallengeWord(recognitionState.challengeWord);
     }
-
-    if (recognitionState.challengeWord) {
-      const challengeTier = classifyRhyme(lineWord, recognitionState.challengeWord, language);
-      if (challengeTier && challengeTier !== 'same') {
-        training.score += 2;
-        lastResult.challengeHit = true;
-        recognitionState.challengeWord = pickChallengeWord(recognitionState.challengeWord);
-      }
-    }
-
-    training.lastResult = lastResult;
-    previousLineWord = lineWord;
   }
 
   function newChallenge() {
@@ -141,7 +117,7 @@ export function useRealTimeSpeechRecognition() {
 
   function resetTraining() {
     previousLineWord = '';
-    recognitionState.training = { score: 0, streak: 0, bestStreak: 0, totalLines: 0, rhymedLines: 0, lastResult: null };
+    recognitionState.training = createInitialTrainingState();
     updateInterface();
   }
 
