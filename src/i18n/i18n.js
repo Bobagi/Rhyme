@@ -61,7 +61,7 @@ export const uiTranslations = {
     'error.prefix': 'Erro no reconhecimento de voz',
     'copy.done': 'Copiado!',
     'footer.made': 'Rhyme — treinador de rima & freestyle · feito por',
-    'footer.github': 'Código no GitHub ↗',
+    'footer.github': 'GitHub',
   },
   en: {
     'hero.eyebrow': 'Live freestyle studio',
@@ -110,7 +110,7 @@ export const uiTranslations = {
     'error.prefix': 'Speech recognition error',
     'copy.done': 'Copied!',
     'footer.made': 'Rhyme — rhyme & freestyle trainer · by',
-    'footer.github': 'Code on GitHub ↗',
+    'footer.github': 'GitHub',
   },
   es: {
     'hero.eyebrow': 'Estudio de freestyle en vivo',
@@ -159,7 +159,7 @@ export const uiTranslations = {
     'error.prefix': 'Error de reconocimiento de voz',
     'copy.done': '¡Copiado!',
     'footer.made': 'Rhyme — entrenador de rima y freestyle · por',
-    'footer.github': 'Código en GitHub ↗',
+    'footer.github': 'GitHub',
   },
 };
 

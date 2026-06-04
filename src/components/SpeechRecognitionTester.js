@@ -112,9 +112,9 @@ export function renderSpeechRecognitionTester(rootElement) {
         </div>
         <div class="lang-switcher" role="group" aria-label="${t('siteLanguage.label')}" data-i18n-aria="siteLanguage.label">
           <span class="lang-globe" aria-hidden="true">🌐</span>
-          <button class="lang-option" type="button" data-ui-lang="pt">PT</button>
-          <button class="lang-option" type="button" data-ui-lang="en">EN</button>
-          <button class="lang-option" type="button" data-ui-lang="es">ES</button>
+          <button class="language-filter-option" type="button" data-ui-lang="pt" aria-label="Português"><span class="flag flag-br"></span></button>
+          <button class="language-filter-option" type="button" data-ui-lang="en" aria-label="English"><span class="flag flag-us"></span></button>
+          <button class="language-filter-option" type="button" data-ui-lang="es" aria-label="Español"><span class="flag flag-es"></span></button>
         </div>
       </header>
       <section class="status-row" hidden>
