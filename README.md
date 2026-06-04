@@ -29,6 +29,9 @@ Funciona em **português, inglês e espanhol**.
 - 🎯 **Rimas de verdade** — casadas pela vogal tônica (rima perfeita), com fallback
   para rimas **aproximadas e toantes** quando a palavra é difícil (ex.: `fácil` →
   `ágil`, `hábil`, `frágil`, `portátil`), então o painel **nunca fica vazio**.
+- 🏆 **Modo treino** — placar que avalia se seus versos rimaram (perfeita / aproximada /
+  toante) com pontos, **sequência (streak)** e recorde, mais uma **palavra-desafio**.
+- 🥁 **Metrônomo (BPM)** embutido pra treinar o freestyle no tempo.
 - 🌎 **PT · EN · ES** — a bandeira troca a transcrição **e** a fonte de rimas.
 - ⚡ **Offline-friendly** — listas de frequência cacheadas em `localStorage`.
 - 📋 **Clique pra copiar** qualquer sugestão, sem parar o microfone.
