@@ -106,12 +106,12 @@ export function useRealTimeSpeechRecognition() {
     recognitionState.training = scored.training;
     previousLineWord = scored.previousLineWord;
     if (scored.challengeHit) {
-      recognitionState.challengeWord = pickChallengeWord(recognitionState.challengeWord);
+      recognitionState.challengeWord = pickChallengeWord(trainingLanguage(), recognitionState.challengeWord);
     }
   }
 
   function newChallenge() {
-    recognitionState.challengeWord = pickChallengeWord(recognitionState.challengeWord);
+    recognitionState.challengeWord = pickChallengeWord(trainingLanguage(), recognitionState.challengeWord);
     updateInterface();
   }
 
@@ -269,6 +269,8 @@ export function useRealTimeSpeechRecognition() {
     }
 
     recognitionState.rhymeLanguageFilter = nextRhymeLanguageFilter;
+    // The challenge word follows the language you rhyme in.
+    recognitionState.challengeWord = pickChallengeWord(trainingLanguage(), recognitionState.challengeWord);
     ensureCatalogsLoaded(nextRhymeLanguageFilter);
 
     // Switching to a specific language also switches what the microphone transcribes.

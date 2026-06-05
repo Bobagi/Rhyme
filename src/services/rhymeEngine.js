@@ -385,10 +385,19 @@ export function classifyRhyme(rawA, rawB, language = 'pt') {
   return null;
 }
 
-// Single, reliably-rhymable pt words to use as practice prompts.
-const challengeWordPool = curatedPortugueseRhymeCatalog.filter((entry) => !/\s/.test(entry));
+// Reliably-rhymable, common words per language to use as practice prompts.
+const challengeWordPoolsByLanguage = {
+  pt: curatedPortugueseRhymeCatalog.filter((entry) => !/\s/.test(entry)),
+  en: ['love', 'time', 'night', 'light', 'fire', 'heart', 'mind', 'dream', 'rain', 'pain',
+    'game', 'name', 'day', 'way', 'play', 'life', 'right', 'sky', 'high', 'fly', 'flow',
+    'beat', 'street', 'sound', 'ground', 'gold', 'story', 'money', 'real', 'feel'],
+  es: ['amor', 'dolor', 'calor', 'flor', 'corazón', 'razón', 'canción', 'pasión', 'vida',
+    'día', 'mano', 'sueño', 'fuego', 'tiempo', 'viento', 'momento', 'luz', 'mar', 'cielo',
+    'suelo', 'camino', 'destino', 'cariño', 'noche', 'calle', 'gente', 'verdad', 'ciudad'],
+};
 
-export function pickChallengeWord(previousWord) {
+export function pickChallengeWord(language = 'pt', previousWord) {
+  const challengeWordPool = challengeWordPoolsByLanguage[language] || challengeWordPoolsByLanguage.pt;
   for (let attempt = 0; attempt < 8; attempt += 1) {
     const candidate = challengeWordPool[Math.floor(Math.random() * challengeWordPool.length)];
     if (candidate && candidate !== previousWord) {

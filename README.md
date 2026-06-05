@@ -1,52 +1,55 @@
 <p align="center">
-  <img src="./og-image.png" alt="Rhyme — treinador de rima e freestyle em tempo real" width="640">
+  <img src="./og-image.png" alt="Rhyme — real-time rhyme & freestyle trainer" width="640">
 </p>
 
 <h1 align="center">Rhyme</h1>
 
 <p align="center">
-  <strong>Treinador de rima e freestyle em tempo real.</strong><br>
-  Fale no microfone e veja rimas — perfeitas e toantes — aparecerem na hora.
+  <strong>Real-time rhyme &amp; freestyle trainer.</strong><br>
+  Speak into the mic and watch rhymes — perfect and slant — appear instantly.
 </p>
 
 <p align="center">
   🔗 <a href="https://rhyme.bobagi.space"><strong>rhyme.bobagi.space</strong></a>
-  &nbsp;·&nbsp; Google Chrome (precisa de microfone + HTTPS)
+  &nbsp;·&nbsp; Google Chrome (needs a microphone + HTTPS)
 </p>
+
+<p align="center"><strong>English</strong> · <a href="./README.pt-BR.md">Português</a></p>
 
 ---
 
-## O que é
+## What it is
 
-Rhyme é um app **100% no navegador** (sem build, sem backend) que usa o
-reconhecimento de voz nativo (Web Speech API) pra transcrever o que você fala e
-**sugerir rimas em tempo real** — pensado pra treino de freestyle/improviso.
-Funciona em **português, inglês e espanhol**.
+Rhyme is a **100% in-browser** app (no build, no backend) that uses the native Web
+Speech API to transcribe what you say and **suggest rhymes in real time** — built for
+freestyle / improv practice. It works in **Portuguese, English and Spanish**.
 
-## Destaques
+## Highlights
 
-- 🎙️ **Transcrição ao vivo** — as sugestões atualizam enquanto você fala (interim results).
-- 🎯 **Rimas de verdade** — casadas pela vogal tônica (rima perfeita), com fallback
-  para rimas **aproximadas e toantes** quando a palavra é difícil (ex.: `fácil` →
-  `ágil`, `hábil`, `frágil`, `portátil`), então o painel **nunca fica vazio**.
-- 🏆 **Modo treino** — placar que avalia se seus versos rimaram (perfeita / aproximada /
-  toante) com pontos, **sequência (streak)** e recorde, mais uma **palavra-desafio**.
-- 🥁 **Metrônomo (BPM)** embutido pra treinar o freestyle no tempo.
-- 🌎 **PT · EN · ES** — a bandeira troca a transcrição **e** a fonte de rimas.
-- ⚡ **Offline-friendly** — listas de frequência cacheadas em `localStorage`.
-- 📋 **Clique pra copiar** qualquer sugestão, sem parar o microfone.
-- 🪶 **Sem dependências / sem build** — só `index.html` + ES modules.
+- 🎙️ **Live transcription** — suggestions update as you speak (interim results).
+- 🎯 **Real rhymes** — matched on the tonic (stressed) vowel (perfect rhyme), with a
+  fallback to **slant and assonant rhymes** for hard words (e.g. `fácil` → `ágil`,
+  `hábil`, `frágil`, `portátil`), so the panel is **never empty**.
+- 🏆 **Training mode** — scores whether your consecutive bars rhymed (perfect / slant /
+  assonant) with points, a **streak** and a best streak, plus a **challenge word** that
+  follows the selected language.
+- 🥁 **Built-in metronome (BPM)** to practice on tempo.
+- 🌎 **PT · EN · ES** — auto-detected UI language (with a manual switcher) and a separate
+  rhyme-language selector.
+- ⚡ **Offline-friendly** — frequency lists cached in `localStorage`.
+- 📋 **Click to copy** any suggestion without stopping the mic.
+- 🪶 **No dependencies / no build** — just `index.html` + ES modules.
 
 ## Stack
 
-Vanilla JS (ES modules), Web Speech API e AudioContext. Servido como arquivos
-estáticos (nginx). Sem framework e sem etapa de build.
+Vanilla JS (ES modules), the Web Speech API and AudioContext. Served as static files
+(nginx). No framework and no build step.
 
-## Arquitetura
+## Architecture
 
-Arquitetura em camadas (clean-ish) com domínio **puro e testável**, seguindo os
-princípios **SOLID** e os padrões **Adapter / Repository / Observer**. Visão geral,
-mapa de diretórios e fluxo de dados em [`ARCHITECTURE.md`](./ARCHITECTURE.md).
+Layered (clean-ish) architecture with a **pure, testable** domain, following the
+**SOLID** principles and the **Adapter / Repository / Observer** patterns. Overview,
+directory map and data flow in [`ARCHITECTURE.md`](./ARCHITECTURE.md).
 
 ## Run locally
 
@@ -62,79 +65,38 @@ Open the app in Google Chrome:
 http://localhost:5500
 ```
 
-Click **Start listening** and allow microphone access.
+Click **Start** and allow microphone access.
 
-> Microphone transcription needs a **secure context**. `localhost` counts as secure,
-> so local dev works over plain HTTP; any other host must be served over **HTTPS**.
-
-## Run in GitHub Codespaces
-
-From the project root, start a static file server:
-
-```bash
-python3 -m http.server 5500
-```
-
-Then:
-
-1. Open the **Ports** tab in Codespaces.
-2. Find port **5500**.
-3. Set visibility to **Public** if needed.
-4. Click **Open in Browser**.
-5. Open the forwarded **HTTPS** URL in Google Chrome.
-6. Allow microphone access.
-7. Click **Start listening**.
+> Microphone transcription needs a **secure context**. `localhost` counts as secure, so
+> local dev works over plain HTTP; any other host must be served over **HTTPS**.
 
 ## Browser support
 
-Use Google Chrome for this MVP.
+Use Google Chrome. Brave can capture microphone audio, but it often blocks Chrome's Web
+Speech transcription service and repeatedly returns a `network` error. If so, use Google
+Chrome.
 
-Brave can capture microphone audio, but it may block or fail Chrome's Web Speech API transcription service and repeatedly return:
+## Speech recognition
 
-```text
-Speech recognition error: network
-```
-
-To try Brave anyway:
-
-1. Open `brave://settings/privacy`.
-2. Disable Shields for the app URL.
-3. Enable Brave settings that allow Google services or Google login-related services, if available in your Brave version.
-4. Restart Brave and test again.
-
-If Brave still returns `network`, use Google Chrome.
-
-## Speech recognition implementation
-
-The app uses the browser-native Web Speech API:
-
-- `SpeechRecognition` / `webkitSpeechRecognition`
-- continuous recognition + interim results
-- selectable language: `pt-BR` (default), `en-US`, `es-ES` — choosing a flag in the
-  rhyme panel switches both the transcription locale and the rhyme source
-- auto-restarts on `end`/recoverable errors (`no-speech`, `network`) with backoff,
-  so it keeps listening without spinning a tight loop
-- live microphone level meter via `AudioContext`
+Uses the browser-native Web Speech API: `SpeechRecognition` / `webkitSpeechRecognition`,
+continuous recognition + interim results, a selectable locale (`pt-BR` default, `en-US`,
+`es-ES`) that also switches the rhyme source, auto-restart on recoverable errors
+(`no-speech`, `network`) with backoff, and a live microphone-level meter via `AudioContext`.
 
 ## Rhyme engine
 
 Rhymes are computed locally in `src/services/rhymeEngine.js`, with no API calls:
 
-- **Tonic-rime matching** — a rhyme is keyed on the stressed (tonic) vowel onward,
-  not the last N letters, so `coração` rhymes with `paixão`/`canção` (`-ão`) while
-  `vida` (`-ida`) stays apart from `dia` (`-ia`). Stress is detected from graphic
-  accents and pt/es default-stress rules; English falls back to a suffix key.
-- **Tiered fallback** — perfect rhymes are scarce or nonexistent for a whole class
-  of words (proparoxytones and consonant-ending paroxytones like `fácil`/`rápido`).
-  When the perfect tier is thin, the engine relaxes to (2) the same tonic vowel
-  skeleton **plus** the same ending (tight slant rhyme) and then (3) the tonic vowel
-  skeleton alone (assonant / *toante*). Common words keep a clean perfect-only list;
-  hard words still get usable suggestions instead of nothing.
-- **Words *and* phrases** — phrases rhyme by their last word (e.g. `com todo meu valor`).
-- **Frequency-ranked** — candidates come from the `hermitdave/FrequencyWords` 50k
-  lists (pt/en/es), already ordered by usage, plus a curated pt catalog.
-- **Offline-friendly** — fetched lists are cached in `localStorage`; a curated
-  catalog gives instant results before the lists finish loading.
-- **Real-time** — suggestions update from the live interim transcript (debounced).
+- **Tonic-rime matching** — a rhyme is keyed on the stressed (tonic) vowel onward, not
+  the last N letters, so `coração` rhymes with `paixão`/`canção` (`-ão`) while `vida`
+  (`-ida`) stays apart from `dia` (`-ia`).
+- **Tiered fallback** — perfect rhymes are scarce for a whole class of words
+  (proparoxytones and consonant-ending words like `fácil`/`rápido`). When the perfect
+  tier is thin, the engine relaxes to the same tonic skeleton **plus** the same ending
+  (slant) and then the tonic vowel skeleton alone (assonant / *toante*) — common words
+  keep a clean perfect-only list, hard words still get usable suggestions.
+- **Words and phrases** — phrases rhyme by their last word (e.g. `com todo meu valor`).
+- **Frequency-ranked** — candidates come from the `hermitdave/FrequencyWords` 50k lists
+  (pt/en/es), already ordered by usage, plus a curated pt catalog.
 
-Click any suggestion to copy it. See `docs/frequency-words.md` for data/licensing.
+Click any suggestion to copy it. See `docs/frequency-words.md` for data / licensing.
